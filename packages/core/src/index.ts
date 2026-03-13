@@ -20,7 +20,8 @@ export type {
   BuildContextIndexInput,
   BuildResultIndexInput,
   BuildProjectContextOptions,
-  FileCategory,
+  FileClassifierRule,
+  MmbridgeConfig,
 } from './types.js';
 
 export {
@@ -66,3 +67,10 @@ export { buildContextIndex, buildResultIndex } from './session-index.js';
 export { createContext, cleanupContext } from './context.js';
 
 export { runBridge, mergeBridgeFindings } from './bridge.js';
+
+export {
+  loadConfig,
+  resolveClassifiers,
+  classifyFileWithRules,
+  DEFAULT_CLASSIFIERS,
+} from './config.js';

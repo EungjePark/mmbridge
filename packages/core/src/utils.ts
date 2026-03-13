@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { RunResult, RunCommandOptions } from './types.js';
+import { DEFAULT_CLASSIFIERS, classifyFileWithRules } from './config.js';
 
 export async function runCommand(
   command: string,
@@ -68,12 +69,14 @@ export async function runCommand(
 
     child.on('close', (code: number | null) => {
       if (timedOut) {
+        const suffix = forcedKill ? ` (SIGKILL after ${killGraceMs}ms grace)` : '';
+        const timeoutMsg = `Command timed out after ${timeoutMs}ms${suffix}`;
         finish({
           ok: false,
           code: -1,
           stdout,
-          stderr: `${stderr}\nCommand timed out after ${timeoutMs}ms${forcedKill ? ` (SIGKILL after ${killGraceMs}ms grace)` : ''}`.trim(),
-          combined: `${stdout}\n${stderr}\nCommand timed out after ${timeoutMs}ms${forcedKill ? ` (SIGKILL after ${killGraceMs}ms grace)` : ''}`.trim(),
+          stderr: `${stderr}\n${timeoutMsg}`.trim(),
+          combined: `${stdout}\n${stderr}\n${timeoutMsg}`.trim(),
         });
         return;
       }
@@ -108,14 +111,8 @@ export function projectSlug(projectDir: string): string {
   return normalized.startsWith('-') ? normalized : `-${normalized}`;
 }
 
-export function classifyFile(filePath: string): string {
-  if (filePath.startsWith('convex/')) return 'Backend (Convex)';
-  if (filePath.startsWith('app/api/')) return 'API Route';
-  if (filePath.startsWith('components/')) return 'UI Component';
-  if (filePath.startsWith('stores/')) return 'State (Zustand)';
-  if (filePath.startsWith('lib/')) return 'Library';
-  if (filePath.startsWith('app/')) return 'Page/Layout';
-  return 'Other';
+export function classifyFile(filePath: string, rules?: import('./types.js').FileClassifierRule[]): string {
+  return classifyFileWithRules(filePath, rules ?? DEFAULT_CLASSIFIERS);
 }
 
 export function isPotentialSecretFile(filePath: string): boolean {

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://mmbridge.dev/schema/config.json",
+  "classifiers": [
+    { "pattern": "convex/", "category": "Backend (Convex)" },
+    { "pattern": "app/api/", "category": "API Route" },
+    { "pattern": "app/", "category": "Page/Layout" },
+    { "pattern": "stores/", "category": "State (Zustand)" }
+  ],
+  "extendDefaultClassifiers": true,
+  "adapters": {
+    "kimi": { "command": "kimi", "args": ["--model", "k2"] },
+    "qwen": { "command": "qwen", "args": ["--model", "coder-plus"] }
+  },
+  "context": {
+    "maxBytes": 2097152
+  }
+}

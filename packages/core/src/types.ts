@@ -180,4 +180,24 @@ export interface BuildProjectContextOptions {
   preferredBaseRef?: string;
 }
 
-export type FileCategory = 'Backend' | 'API Route' | 'UI Component' | 'State' | 'Library' | 'Page/Layout' | 'Other';
+export interface FileClassifierRule {
+  pattern: string;
+  category: string;
+}
+
+export interface MmbridgeConfig {
+  /** Custom file classifier rules (matched by path prefix) */
+  classifiers?: FileClassifierRule[];
+  /** If true (default), custom classifiers are prepended to built-in defaults. Set false to replace entirely. */
+  extendDefaultClassifiers?: boolean;
+  /** Adapter-specific configuration overrides */
+  adapters?: Record<string, { command?: string; args?: string[] }>;
+  /** Extra redaction rules beyond built-in patterns */
+  redaction?: {
+    extraRules?: Array<{ pattern: string; replacement: string; label: string }>;
+  };
+  /** Context workspace limits */
+  context?: {
+    maxBytes?: number;
+  };
+}
