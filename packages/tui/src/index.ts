@@ -89,7 +89,7 @@ interface BlessedScreen {
   render(): void;
   destroy(): void;
   key(keys: string[], fn: () => void): void;
-  on(event: string, fn: (...args: unknown[]) => void): void;
+  on(event: string, fn: () => void): void;
   destroyed: boolean;
   width: number;
 }
