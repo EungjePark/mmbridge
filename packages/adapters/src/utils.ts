@@ -4,11 +4,7 @@ async function loadCoreUtils(): Promise<{
   commandExists: (cmd: string) => Promise<boolean>;
   runCommand: (cmd: string, args: string[], opts?: RunCommandOptions) => Promise<RunResult>;
 }> {
-  try {
-    return await import('@mmbridge/core');
-  } catch {
-    return import('../../../core/src/utils.js') as never;
-  }
+  return import('@mmbridge/core');
 }
 
 export async function ensureBinary(binary: string): Promise<void> {

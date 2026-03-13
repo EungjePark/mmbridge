@@ -40,34 +40,26 @@ export interface DoctorOptions {
   setup?: boolean;
 }
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const TOOL_BINARY_MAP: Record<string, string> = {
+  kimi: 'kimi',
+  qwen: 'qwen',
+  codex: 'codex',
+  gemini: 'opencode',
+};
+
+const TOOL_NAMES = Object.keys(TOOL_BINARY_MAP);
+
 // ─── Lazy dependency loaders ──────────────────────────────────────────────────
-// Each dependency is loaded lazily on first use so that `mmbridge --help`
-// remains fast and doesn't fail if optional peer packages are absent.
+// Each dependency is loaded lazily so that `mmbridge --help` remains fast
+// and doesn't fail if optional peer packages are absent.
 
-async function importCore() {
-  const mod = await import('@mmbridge/core');
-  return mod;
-}
-
-async function importAdapters() {
-  const mod = await import('@mmbridge/adapters');
-  return mod;
-}
-
-async function importSessionStore() {
-  const mod = await import('@mmbridge/session-store');
-  return mod;
-}
-
-async function importTui() {
-  const mod = await import('@mmbridge/tui');
-  return mod;
-}
-
-async function importIntegrations() {
-  const mod = await import('@mmbridge/integrations');
-  return mod;
-}
+const importCore = () => import('@mmbridge/core');
+const importAdapters = () => import('@mmbridge/adapters');
+const importSessionStore = () => import('@mmbridge/session-store');
+const importTui = () => import('@mmbridge/tui');
+const importIntegrations = () => import('@mmbridge/integrations');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -98,26 +90,19 @@ async function runReviewCommand(options: ReviewCommandOptions): Promise<void> {
     buildProjectContext,
     buildResultIndex,
     commandExists,
-    createContextWorkspace,
-    enrichReport,
-    runBridgeAgent,
+    createContext,
+    enrichFindings,
+    runBridge,
   } = await importCore();
 
   const { runReviewAdapter } = await importAdapters();
   const { SessionStore } = await importSessionStore();
   const { renderReviewConsole } = await importTui();
 
-  // Verify at least one tool binary is available
   const tool = options.tool ?? 'kimi';
-  const binaryMap: Record<string, string> = {
-    kimi: 'kimi',
-    qwen: 'qwen',
-    codex: 'codex',
-    gemini: 'opencode',
-  };
-  const binary = binaryMap[tool];
+  const binary = TOOL_BINARY_MAP[tool];
   if (!binary) {
-    exitWithError(`Unknown tool: ${tool}. Valid tools: ${Object.keys(binaryMap).join(', ')}`);
+    exitWithError(`Unknown tool: ${tool}. Valid tools: ${TOOL_NAMES.join(', ')}`);
   }
   const isInstalled = await commandExists(binary);
   if (!isInstalled) {
@@ -126,7 +111,7 @@ async function runReviewCommand(options: ReviewCommandOptions): Promise<void> {
     );
   }
 
-  const workspace = await createContextWorkspace({
+  const workspace = await createContext({
     projectDir,
     mode,
     baseRef: options.baseRef,
@@ -154,55 +139,55 @@ async function runReviewCommand(options: ReviewCommandOptions): Promise<void> {
     sessionId: workspace.workspace,
   });
 
-  const enriched = await enrichReport(
-    adapterResult.text,
-    workspace.changedFiles,
-    { tool, mode },
-  );
+  // enrichFindings operates on parsed Finding[], adapter returns raw text.
+  // For now, treat adapter text as summary; finding parsing is a future enhancement.
+  const enriched = enrichFindings([], workspace.changedFiles);
 
   const resultIndex = buildResultIndex({
-    summary: enriched.summary,
+    summary: adapterResult.text,
     findings: enriched.findings,
     filteredCount: enriched.filteredCount,
     promotedCount: enriched.promotedCount,
     followupSupported: adapterResult.followupSupported,
-    parseState: 'parsed',
+    rawOutput: adapterResult.text,
+    parseState: 'raw',
   });
 
   const sessionStore = new SessionStore(projectDir);
-  const localSessionId = await sessionStore.save({
+  const savedSession = await sessionStore.save({
     tool,
     mode,
     projectDir,
+    workspace: workspace.workspace,
     externalSessionId: adapterResult.externalSessionId,
     batchId: null,
-    summary: enriched.summary,
-    findings: enriched.findings,
-    contextIndex,
-    resultIndex,
+    summary: adapterResult.text,
+    findings: enriched.findings as unknown as Array<Record<string, unknown>>,
+    contextIndex: contextIndex as unknown as Record<string, unknown>,
+    resultIndex: resultIndex as unknown as Record<string, unknown>,
   });
 
   // Bridge aggregation when requested
   if (options.bridge) {
     const projectContext = await buildProjectContext({ projectDir });
-    await runBridgeAgent({
+    runBridge({
       profile: options.bridge,
       projectContext,
       results: [
         {
           tool,
           findings: enriched.findings,
-          summary: enriched.summary,
+          summary: adapterResult.text,
         },
       ],
     });
   }
 
   const report = {
-    localSessionId,
-    externalSessionId: adapterResult.externalSessionId,
+    localSessionId: savedSession.id,
+    externalSessionId: adapterResult.externalSessionId ?? undefined,
     workspace: workspace.workspace,
-    summary: enriched.summary,
+    summary: adapterResult.text,
     findings: enriched.findings,
     resultIndex,
     changedFiles: workspace.copiedFileCount,
@@ -215,7 +200,7 @@ async function runReviewCommand(options: ReviewCommandOptions): Promise<void> {
     return;
   }
 
-  await renderReviewConsole(report);
+  await renderReviewConsole(report as unknown as Parameters<typeof renderReviewConsole>[0]);
 }
 
 // ─── Command: followup ────────────────────────────────────────────────────────
@@ -232,7 +217,8 @@ async function runFollowupCommand(options: FollowupCommandOptions): Promise<void
   let sessionId = options.explicitSessionId;
   if (!sessionId) {
     if (options.useLatestWhenMissing) {
-      const latest = await sessionStore.getLatest({ tool: options.tool });
+      const sessions = await sessionStore.list({ tool: options.tool });
+      const latest = sessions[0] ?? null;
       if (!latest?.externalSessionId) {
         exitWithError(
           `No external session ID found for tool "${options.tool}". Run a review first.`,
@@ -276,19 +262,11 @@ async function runDashboardCommand(options: DashboardOptions): Promise<void> {
   const { renderDashboard } = await importTui();
 
   const sessionStore = new SessionStore(projectDir);
-  const sessions = await sessionStore.list({ modeFilter: options.mode });
-
-  const tools = ['kimi', 'qwen', 'codex', 'gemini'];
-  const binaryMap: Record<string, string> = {
-    kimi: 'kimi',
-    qwen: 'qwen',
-    codex: 'codex',
-    gemini: 'opencode',
-  };
+  const sessions = await sessionStore.list({ projectDir });
 
   const models = await Promise.all(
-    tools.map(async (tool) => {
-      const binary = binaryMap[tool] ?? tool;
+    TOOL_NAMES.map(async (tool) => {
+      const binary = TOOL_BINARY_MAP[tool] ?? tool;
       const installed = await commandExists(binary);
       const toolSessions = sessions.filter((s: { tool: string }) => s.tool === tool);
       const latest = toolSessions[0] ?? null;
@@ -379,7 +357,7 @@ async function runDoctorCommand(options: DoctorOptions): Promise<void> {
 
 async function runSyncAgentsCommand(options: SyncAgentsOptions): Promise<void> {
   const { syncClaudeAgents } = await importIntegrations();
-  await syncClaudeAgents({ dryRun: options.dryRun ?? false, verbose: options.verbose ?? false });
+  await syncClaudeAgents({ dryRun: options.dryRun ?? false });
 }
 
 // ─── CLI entry ────────────────────────────────────────────────────────────────

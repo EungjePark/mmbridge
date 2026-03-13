@@ -12,7 +12,7 @@ export async function runKimiReview({
 }): Promise<AdapterResult> {
   await ensureBinary('kimi');
   const prompt = await fs.readFile(path.join(workspace, 'prompt', 'kimi.md'), 'utf8');
-  const args = ['-w', workspace, '-S', sessionId ?? '', '--quiet', '-p', prompt];
+  const args = ['-w', workspace, ...(sessionId ? ['-S', sessionId] : []), '--quiet', '-p', prompt];
   const result = await invoke('kimi', args, { cwd: workspace, timeoutMs: 300000 });
   return {
     tool: 'kimi',

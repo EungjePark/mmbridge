@@ -25,7 +25,7 @@ export async function runGeminiReview({
   return {
     tool: 'gemini',
     externalSessionId,
-    followupSupported: true,
+    followupSupported: Boolean(externalSessionId),
     command: 'opencode',
     args,
     ...result,

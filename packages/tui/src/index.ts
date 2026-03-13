@@ -128,8 +128,9 @@ async function loadBlessed(): Promise<BlessedFactory> {
   if (_blessed) return _blessed;
   try {
     // Try dynamic import first (ESM)
-    const mod = await import('blessed') as { default?: BlessedFactory } & BlessedFactory;
-    _blessed = (mod.default ?? mod) as BlessedFactory;
+    const mod: unknown = await import('blessed');
+    const resolved = mod as { default?: BlessedFactory } & BlessedFactory;
+    _blessed = (resolved.default ?? resolved) as BlessedFactory;
   } catch {
     // Fallback: resolve from node_modules path
     const blessedPath = path.resolve(
@@ -414,7 +415,7 @@ function buildProjectContent(
   projectContext: Record<string, unknown> | null,
 ): string {
   const lines: string[] = [];
-  lines.push(`{bold}Project:{/bold} ${projectDir || os.cwd()}`);
+  lines.push(`{bold}Project:{/bold} ${projectDir || process.cwd()}`);
   if (projectContext) {
     lines.push('');
     lines.push('{bold}Context:{/bold}');

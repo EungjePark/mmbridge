@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import type { RedactContentResult, RedactionResult } from './types.js';
 
 const REDACTION_RULES: Array<{ pattern: RegExp; replacement: string; label: string }> = [
@@ -28,7 +30,6 @@ export function redactContent(content: string): RedactContentResult {
 }
 
 export async function redactFile(filePath: string): Promise<RedactionResult> {
-  const fs = await import('node:fs/promises');
   let content: string;
   try {
     content = await fs.readFile(filePath, 'utf8');
@@ -46,9 +47,6 @@ export async function redactFile(filePath: string): Promise<RedactionResult> {
 }
 
 export async function redactWorkspace(workspaceDir: string): Promise<RedactionResult> {
-  const fs = await import('node:fs/promises');
-  const path = await import('node:path');
-
   let totalChanged = 0;
   let totalRules = 0;
 

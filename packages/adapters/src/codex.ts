@@ -14,7 +14,7 @@ export async function runCodexReview({
   await ensureBinary('codex');
   const prompt = await buildCodexReviewPrompt({ workspace, changedFiles });
   const outputPath = createCodexOutputPath(workspace, 'review');
-  const args = buildCodexExecArgs({ workspace, prompt, outputPath });
+  const args = buildCodexExecArgs({ workspace, outputPath });
   const result = await invoke('codex', args, { cwd: workspace, input: prompt, timeoutMs: 300000 });
   const externalSessionId = parseExternalSessionId(result.combined, null);
   const text = await readCodexLastMessage(outputPath, result.combined);
@@ -31,11 +31,9 @@ export async function runCodexReview({
 
 export function buildCodexExecArgs({
   workspace,
-  prompt: _prompt,
   outputPath,
 }: {
   workspace: string;
-  prompt: string;
   outputPath: string;
 }): string[] {
   return [
@@ -54,12 +52,10 @@ export function buildCodexExecArgs({
 
 export async function runCodexFollowup({
   workspace,
-  cwd: _cwd,
   sessionId,
   prompt,
 }: {
   workspace: string;
-  cwd?: string;
   sessionId: string;
   prompt: string;
 }): Promise<AdapterResult> {

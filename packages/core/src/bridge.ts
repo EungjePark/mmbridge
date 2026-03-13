@@ -1,5 +1,5 @@
 import { enrichFindings, sortFindings } from './report.js';
-import type { BridgeOptions, BridgeResult, Finding, Severity } from './types.js';
+import type { BridgeOptions, BridgeResult, Finding } from './types.js';
 
 const DEFAULT_PROFILE = 'standard';
 
@@ -12,7 +12,6 @@ const CONSENSUS_THRESHOLD: Record<string, number> = {
 export function runBridge(options: BridgeOptions = {}): BridgeResult {
   const profile = options.profile ?? DEFAULT_PROFILE;
   const results = options.results ?? [];
-  const projectContext = options.projectContext;
 
   const nonSkipped = results.filter((r) => !r.skipped);
   const totalInputs = nonSkipped.length;
@@ -62,11 +61,7 @@ export function runBridge(options: BridgeOptions = {}): BridgeResult {
     }
   }
 
-  const changedFiles = projectContext
-    ? (Array.isArray((projectContext as { baseDiffCount?: unknown }).baseDiffCount) ? [] : [])
-    : [];
-
-  const { findings: enriched, filteredCount, promotedCount } = enrichFindings(consensusFindings, changedFiles);
+  const { findings: enriched, filteredCount, promotedCount } = enrichFindings(consensusFindings, []);
   const sorted = sortFindings(enriched);
 
   const critCount = sorted.filter((f) => f.severity === 'CRITICAL').length;

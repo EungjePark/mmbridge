@@ -1,5 +1,4 @@
 import { getHead, getGitStatusSummary, getDefaultBaseRef, getDiffFileCount } from './git.js';
-import { nowIso } from './utils.js';
 import type { ProjectContext, BuildProjectContextOptions } from './types.js';
 
 export async function buildProjectContext(
@@ -63,5 +62,3 @@ export function formatProjectContext(ctx: ProjectContext): string {
   ];
   return lines.join('\n');
 }
-
-export { nowIso };
