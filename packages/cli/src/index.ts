@@ -16,7 +16,11 @@ export async function main(): Promise<void> {
   program
     .name('mmbridge')
     .description('Multi-model code review bridge')
-    .version('0.1.0');
+    .version('0.2.0')
+    .action(async () => {
+      const { renderTui } = await import('@mmbridge/tui');
+      await renderTui();
+    });
 
   // ── review ──
   program
@@ -106,6 +110,16 @@ export async function main(): Promise<void> {
     .action(async (opts: InitCommandOptions) => {
       const { runInitCommand } = await import('./commands/init.js');
       await runInitCommand(opts);
+    });
+
+  // ── tui ──
+  program
+    .command('tui')
+    .description('Open the interactive TUI hub')
+    .option('--tab <tab>', 'Open directly to a tab (review|config|sessions|diff)')
+    .action(async () => {
+      const { renderTui } = await import('@mmbridge/tui');
+      await renderTui();
     });
 
   // ── diff ──
