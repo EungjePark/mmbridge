@@ -1,32 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text } from 'ink';
-
-// ─── Color constants ──────────────────────────────────────────────────────────
-
-const colors = {
-  green: '#22C55E',
-  yellow: '#EAB308',
-  red: '#EF4444',
-  cyan: '#06B6D4',
-  dim: '#64748B',
-  text: '#F8FAFC',
-  textMuted: '#94A3B8',
-  surface: '#1E293B',
-  borderFocus: '#22C55E',
-  borderIdle: '#334155',
-} as const;
-
-function severityColor(severity: string): string {
-  switch (severity.toUpperCase()) {
-    case 'CRITICAL': return colors.red;
-    case 'WARNING':  return colors.yellow;
-    case 'INFO':     return colors.cyan;
-    case 'REFACTOR': return colors.dim;
-    default:         return colors.text;
-  }
-}
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { colors, severityColor } from '../theme.js';
+import { HRule } from '../components/Header.js';
 
 interface FindingAnnotation {
   severity: string;
@@ -45,8 +20,6 @@ interface DiffFile {
   findingCount: number;
   lines: DiffLine[];
 }
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_FILES: DiffFile[] = [
   {
@@ -92,7 +65,7 @@ const MOCK_FILES: DiffFile[] = [
       {
         type: 'add',
         content: "+  secret: 'hardcoded-value',",
-        finding: { severity: 'CRITICAL', message: 'Hardcoded secret — use env variable' },
+        finding: { severity: 'CRITICAL', message: 'Hardcoded secret \u2014 use env variable' },
       },
       { type: 'context', content: ' };' },
     ],
@@ -112,35 +85,27 @@ const MOCK_FILES: DiffFile[] = [
   },
 ];
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-interface FileTreeItemProps {
+function FileTreeItem({ file, isSelected }: {
   file: DiffFile;
   isSelected: boolean;
-}
-
-function FileTreeItem({ file, isSelected }: FileTreeItemProps): React.ReactElement {
+}): React.ReactElement {
   const shortPath = file.path.replace(/^src\//, '');
   return (
-    <Box flexDirection="row">
-      <Text color={isSelected ? colors.green : colors.dim}>
-        {isSelected ? '●' : '○'}{' '}
+    <Box flexDirection="row" paddingLeft={2}>
+      <Text color={isSelected ? colors.green : colors.textMuted}>
+        {isSelected ? '\u25CF' : '\u25CB'}{' '}
       </Text>
       <Text color={isSelected ? colors.text : colors.textMuted}>
         {shortPath.padEnd(14)}
       </Text>
-      <Text color={file.findingCount > 0 ? colors.yellow : colors.dim}>
+      <Text color={file.findingCount > 0 ? colors.yellow : colors.textMuted}>
         {file.findingCount}
       </Text>
     </Box>
   );
 }
 
-interface DiffLineRowProps {
-  line: DiffLine;
-}
-
-function DiffLineRow({ line }: DiffLineRowProps): React.ReactElement {
+function DiffLineRow({ line }: { line: DiffLine }): React.ReactElement {
   let lineColor: string = colors.textMuted;
   if (line.type === 'add')         lineColor = colors.green;
   if (line.type === 'remove')      lineColor = colors.red;
@@ -152,10 +117,10 @@ function DiffLineRow({ line }: DiffLineRowProps): React.ReactElement {
   return (
     <Box flexDirection="column">
       <Text color={lineColor} bold={isBold}>{line.content}</Text>
-      {line.finding !== null && line.finding !== undefined && (
+      {line.finding != null && (
         <Box marginLeft={2}>
           <Text color={severityColor(line.finding.severity)}>
-            {'╰─ '}
+            {'\u2570\u2500 '}
             <Text bold>{line.finding.severity}</Text>
             {'  '}
             {line.finding.message}
@@ -166,14 +131,13 @@ function DiffLineRow({ line }: DiffLineRowProps): React.ReactElement {
   );
 }
 
-interface DiffPanelProps {
-  file: DiffFile;
-}
-
-function DiffPanel({ file }: DiffPanelProps): React.ReactElement {
+function DiffPanel({ file }: { file: DiffFile }): React.ReactElement {
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" paddingLeft={1}>
       <Text color={colors.text} bold>{file.path}</Text>
+      <Text color={colors.textMuted}>
+        {file.findingCount} finding{file.findingCount !== 1 ? 's' : ''}
+      </Text>
       <Box marginTop={1} flexDirection="column">
         {file.lines.map((line, i) => (
           <DiffLineRow key={i} line={line} />
@@ -183,8 +147,6 @@ function DiffPanel({ file }: DiffPanelProps): React.ReactElement {
   );
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────────
-
 export function DiffView(): React.ReactElement {
   const [selectedPath, setSelectedPath] = useState<string>(
     MOCK_FILES[0]?.path ?? '',
@@ -192,10 +154,8 @@ export function DiffView(): React.ReactElement {
 
   if (MOCK_FILES.length === 0) {
     return (
-      <Box padding={2}>
-        <Text color={colors.textMuted}>
-          No diff data. Run a review first.
-        </Text>
+      <Box paddingX={2} paddingY={1}>
+        <Text color={colors.textMuted}>No diff data. Run a review first.</Text>
       </Box>
     );
   }
@@ -203,43 +163,31 @@ export function DiffView(): React.ReactElement {
   const selectedFile =
     MOCK_FILES.find((f) => f.path === selectedPath) ?? MOCK_FILES[0]!;
 
-  // Handler kept for future key-binding wiring in App.tsx
+  // Kept for future key-binding wiring
   const _handleSelect = (path: string): void => { setSelectedPath(path); };
 
   return (
-    <Box flexDirection="row" width="100%" height="100%">
-      {/* ── File tree sidebar ── */}
-      <Box
-        flexDirection="column"
-        width={22}
-        borderStyle="single"
-        borderColor={colors.borderIdle}
-        paddingX={1}
-        paddingY={1}
-      >
-        <Text color={colors.textMuted} bold>FILES</Text>
-        <Box marginBottom={1} />
-        {MOCK_FILES.map((f) => (
-          <FileTreeItem
-            key={f.path}
-            file={f}
-            isSelected={f.path === selectedFile.path}
-          />
-        ))}
+    <Box flexDirection="row" width="100%">
+      {/* File tree sidebar */}
+      <Box flexDirection="column" width={26} paddingX={1} paddingY={1}>
+        <Text color={colors.textMuted}>FILES</Text>
+        <Box flexDirection="column" marginTop={0} marginBottom={1}>
+          {MOCK_FILES.map((f) => (
+            <FileTreeItem
+              key={f.path}
+              file={f}
+              isSelected={f.path === selectedFile.path}
+            />
+          ))}
+        </Box>
+        <HRule />
         <Box marginTop={1}>
-          <Text color={colors.dim}>n next  N prev</Text>
+          <Text color={colors.textMuted}>n next  N prev</Text>
         </Box>
       </Box>
 
-      {/* ── Diff main panel ── */}
-      <Box
-        flexDirection="column"
-        flexGrow={1}
-        borderStyle="single"
-        borderColor={colors.borderFocus}
-        paddingX={2}
-        paddingY={1}
-      >
+      {/* Diff main panel */}
+      <Box flexDirection="column" flexGrow={1} paddingY={1}>
         <DiffPanel file={selectedFile} />
       </Box>
     </Box>

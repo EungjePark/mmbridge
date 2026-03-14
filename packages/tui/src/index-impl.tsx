@@ -5,11 +5,6 @@ import { App } from './App.js';
 // ─── Re-export domain interfaces for backward compatibility ───────────────────
 
 export type {
-  DashboardModel,
-  DashboardSession,
-  DashboardData,
-  DashboardPayload,
-  SummaryRow,
   DoctorReport,
   ReviewReport,
 } from './legacy-types.js';
@@ -32,8 +27,4 @@ export async function renderSetupWizard(report: import('./legacy-types.js').Doct
 
 export async function renderReviewConsole(report: import('./legacy-types.js').ReviewReport): Promise<void> {
   process.stdout.write(JSON.stringify(report, null, 2) + '\n');
-}
-
-export async function renderDashboard(payload: import('./legacy-types.js').DashboardPayload): Promise<void> {
-  process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
 }

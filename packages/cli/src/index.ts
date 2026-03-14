@@ -2,13 +2,12 @@ import { Command } from 'commander';
 
 import type { ReviewCommandOptions } from './commands/review.js';
 import type { FollowupCommandOptions } from './commands/followup.js';
-import type { DashboardOptions } from './commands/dashboard.js';
 import type { DoctorOptions } from './commands/doctor.js';
 import type { SyncAgentsOptions } from './commands/sync-agents.js';
 import type { InitCommandOptions } from './commands/init.js';
 import type { DiffCommandOptions } from './commands/diff.js';
 
-export type { ReviewCommandOptions, FollowupCommandOptions, DashboardOptions, DoctorOptions, SyncAgentsOptions, InitCommandOptions, DiffCommandOptions };
+export type { ReviewCommandOptions, FollowupCommandOptions, DoctorOptions, SyncAgentsOptions, InitCommandOptions, DiffCommandOptions };
 
 export async function main(): Promise<void> {
   const program = new Command();
@@ -66,18 +65,6 @@ export async function main(): Promise<void> {
         projectDir: opts.project,
         useLatestWhenMissing: opts.latest,
       });
-    });
-
-  // ── dashboard ──
-  program
-    .command('dashboard')
-    .description('Open the mmbridge TUI dashboard')
-    .option('-m, --mode <mode>', 'Filter sessions by mode')
-    .option('-p, --project <dir>', 'Project directory (default: cwd)')
-    .option('--json', 'Output JSON instead of TUI')
-    .action(async (opts: DashboardOptions) => {
-      const { runDashboardCommand } = await import('./commands/dashboard.js');
-      await runDashboardCommand(opts);
     });
 
   // ── doctor ──

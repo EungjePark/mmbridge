@@ -1,21 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { RadioGroup } from '../components/RadioGroup.js';
-import { InlineForm } from '../components/InlineForm.js';
-import type { FormField } from '../components/InlineForm.js';
-
-const colors = {
-  green: '#22C55E',
-  yellow: '#EAB308',
-  red: '#EF4444',
-  cyan: '#06B6D4',
-  dim: '#64748B',
-  text: '#F8FAFC',
-  textMuted: '#94A3B8',
-  surface: '#1E293B',
-  borderFocus: '#22C55E',
-  borderIdle: '#334155',
-} as const;
+import { colors, toolColor } from '../theme.js';
+import { HRule } from '../components/Header.js';
 
 const ADAPTERS = ['kimi', 'qwen', 'codex', 'gemini'] as const;
 const SETTINGS = ['classifiers', 'redaction', 'context', 'bridge'] as const;
@@ -26,36 +12,35 @@ type Setting = typeof SETTINGS[number];
 interface AdapterInfo {
   binary: string;
   installed: boolean;
-  lastTested: string | null;
   latency: string | null;
 }
 
 const ADAPTER_INFO: Record<Adapter, AdapterInfo> = {
-  kimi: { binary: 'kimi', installed: true, lastTested: '1.2s ago', latency: '1.2s' },
-  qwen: { binary: 'qwen', installed: true, lastTested: '3.4s ago', latency: '3.4s' },
-  codex: { binary: 'codex', installed: false, lastTested: null, latency: null },
-  gemini: { binary: 'opencode', installed: true, lastTested: '0.8s ago', latency: '0.8s' },
+  kimi:   { binary: 'kimi',      installed: true,  latency: '1.2s' },
+  qwen:   { binary: 'qwen',      installed: true,  latency: '3.4s' },
+  codex:  { binary: 'codex',     installed: false, latency: null },
+  gemini: { binary: 'opencode',  installed: true,  latency: '0.8s' },
 };
 
-const SETTINGS_FIELDS: Record<Setting, FormField[]> = {
+const SETTINGS_VALUES: Record<Setting, Array<{ label: string; value: string }>> = {
   classifiers: [
-    { label: 'severity levels', value: 'critical, warning, info, refactor' },
-    { label: 'custom patterns', value: '(none)', editable: true },
+    { label: 'Severity levels', value: 'critical, warning, info, refactor' },
+    { label: 'Custom patterns', value: '(none)' },
   ],
   redaction: [
-    { label: 'redact tokens', value: 'enabled' },
-    { label: 'redact PII', value: 'enabled' },
-    { label: 'custom rules', value: '(none)', editable: true },
+    { label: 'Redact tokens',   value: 'enabled' },
+    { label: 'Redact PII',      value: 'enabled' },
+    { label: 'Custom rules',    value: '(none)' },
   ],
   context: [
-    { label: 'max files', value: '200' },
-    { label: 'context window', value: '128k' },
-    { label: 'include tests', value: 'true' },
+    { label: 'Max files',       value: '200' },
+    { label: 'Context window',  value: '128k' },
+    { label: 'Include tests',   value: 'true' },
   ],
   bridge: [
-    { label: 'workspace dir', value: '/tmp/mmctx-*' },
-    { label: 'auth model', value: 'claude-sonnet' },
-    { label: 'timeout', value: '120s' },
+    { label: 'Workspace dir',   value: '/tmp/mmctx-*' },
+    { label: 'Auth model',      value: 'claude-sonnet' },
+    { label: 'Timeout',         value: '120s' },
   ],
 };
 
@@ -63,103 +48,65 @@ type SelectionState =
   | { section: 'adapters'; index: number }
   | { section: 'settings'; index: number };
 
-function AdapterDetailPanel({
-  adapter,
-  testing,
-}: {
+function KVRow({ label, value, valueColor }: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}): React.ReactElement {
+  return (
+    <Box flexDirection="row">
+      <Text color={colors.textMuted}>{label.padEnd(16)}</Text>
+      <Text color={valueColor ?? colors.text}>{value}</Text>
+    </Box>
+  );
+}
+
+function AdapterCard({ adapter, isSelected, testing }: {
   adapter: Adapter;
+  isSelected: boolean;
   testing: boolean;
 }): React.ReactElement {
   const info = ADAPTER_INFO[adapter];
-  const fields: FormField[] = [
-    { label: 'Binary', value: info.binary },
-    {
-      label: 'Status',
-      value: info.installed ? '✓ installed' : '✗ not installed',
-    },
-    {
-      label: 'Connection test',
-      value: info.lastTested != null
-        ? `✓ ${info.lastTested}`
-        : '(not tested)',
-    },
-    { label: 'Custom args', value: '(default)', editable: true },
-  ];
+  const installStatus = info.installed ? '\u2713 installed' : '\u2717 missing';
+  const installColor = info.installed ? colors.green : colors.red;
+  const statusValue = info.installed
+    ? (info.latency != null ? `Connected (${info.latency})` : 'Connected')
+    : 'Not installed';
 
   return (
-    <Box flexDirection="column" gap={1}>
-      <Text bold color={colors.cyan}>
-        {adapter.toUpperCase()} ADAPTER
-      </Text>
-      <InlineForm fields={fields} />
-      <Box marginTop={1}>
-        {testing ? (
-          <Text color={colors.yellow}>Testing connection...</Text>
-        ) : (
-          <Text bold color={colors.green}>[ TEST CONNECTION ]</Text>
-        )}
+    <Box flexDirection="column" marginBottom={1} paddingLeft={1}>
+      <Box flexDirection="row" justifyContent="space-between">
+        <Text color={toolColor(adapter)} bold>{adapter}</Text>
+        <Text color={installColor}>{installStatus}</Text>
       </Box>
+      <Box flexDirection="column" paddingLeft={2} marginTop={0}>
+        <KVRow label="Binary" value={info.binary} />
+        <KVRow label="Status" value={statusValue} valueColor={info.installed ? colors.green : colors.red} />
+        <KVRow label="Args" value="(default)" />
+      </Box>
+      {isSelected && (
+        <Box paddingLeft={2} marginTop={1}>
+          {testing ? (
+            <Text color={colors.yellow}>Testing connection...</Text>
+          ) : (
+            <Text bold color={colors.green}>[ \u23CE TEST CONNECTION ]</Text>
+          )}
+        </Box>
+      )}
     </Box>
   );
 }
 
-function SettingDetailPanel({ setting }: { setting: Setting }): React.ReactElement {
-  const fields = SETTINGS_FIELDS[setting];
+function SettingsPanel({ setting }: { setting: Setting }): React.ReactElement {
+  const fields = SETTINGS_VALUES[setting];
   return (
-    <Box flexDirection="column" gap={1}>
-      <Text bold color={colors.cyan}>
-        {setting.toUpperCase()} SETTINGS
-      </Text>
-      <InlineForm fields={fields} />
-    </Box>
-  );
-}
-
-function SidebarPanel({
-  selection,
-  onSelectAdapter,
-  onSelectSetting,
-}: {
-  selection: SelectionState;
-  onSelectAdapter: (idx: number) => void;
-  onSelectSetting: (idx: number) => void;
-}): React.ReactElement {
-  return (
-    <Box
-      flexDirection="column"
-      borderStyle="single"
-      borderColor={colors.borderIdle}
-      paddingX={1}
-      width={26}
-    >
-      <Text bold color={colors.textMuted}>ADAPTERS</Text>
-      <Box flexDirection="column" marginBottom={1}>
-        {ADAPTERS.map((adapter, i) => {
-          const info = ADAPTER_INFO[adapter];
-          const isSelected =
-            selection.section === 'adapters' && selection.index === i;
-          return (
-            <Box key={adapter}>
-              <Text color={isSelected ? colors.green : colors.dim}>
-                {isSelected ? '●' : '○'}
-              </Text>
-              <Text> </Text>
-              <Text color={colors.text}>{adapter}</Text>
-              <Text>{'  '}</Text>
-              <Text color={info.installed ? colors.green : colors.red}>
-                {info.installed ? '✓' : '✗'}
-              </Text>
-            </Box>
-          );
-        })}
+    <Box flexDirection="column" paddingLeft={1}>
+      <Text color={colors.textMuted}>SETTINGS \u00B7 {setting}</Text>
+      <Box flexDirection="column" paddingLeft={2} marginTop={1}>
+        {fields.map((f) => (
+          <KVRow key={f.label} label={f.label} value={f.value} />
+        ))}
       </Box>
-      <Text bold color={colors.textMuted}>SETTINGS</Text>
-      <RadioGroup
-        items={[...SETTINGS]}
-        selected={selection.section === 'settings' ? selection.index : -1}
-        focused={selection.section === 'settings'}
-        onChange={onSelectSetting}
-      />
     </Box>
   );
 }
@@ -187,14 +134,6 @@ export function ConfigView(): React.ReactElement {
     setTimeout(() => setTesting(false), 1500);
   };
 
-  const selectAdapter = (idx: number): void => {
-    setSelection({ section: 'adapters', index: idx });
-  };
-
-  const selectSetting = (idx: number): void => {
-    setSelection({ section: 'settings', index: idx });
-  };
-
   useInput((_input, key) => {
     if (key.upArrow || key.downArrow) {
       const dir = key.downArrow ? 1 : -1;
@@ -207,41 +146,80 @@ export function ConfigView(): React.ReactElement {
       }
     }
     if (key.tab) {
-      if (selection.section === 'adapters') {
-        setSelection({ section: 'settings', index: 0 });
-      } else {
-        setSelection({ section: 'adapters', index: 0 });
-      }
+      if (selection.section === 'adapters') setSelection({ section: 'settings', index: 0 });
+      else setSelection({ section: 'adapters', index: 0 });
     }
-    if (key.return && selection.section === 'adapters') {
-      handleTest();
-    }
+    if (key.return && selection.section === 'adapters') handleTest();
   });
 
   return (
-    <Box flexDirection="row" gap={1} padding={1}>
-      <SidebarPanel
-        selection={selection}
-        onSelectAdapter={selectAdapter}
-        onSelectSetting={selectSetting}
-      />
-      <Box
-        flexDirection="column"
-        borderStyle="single"
-        borderColor={colors.borderIdle}
-        paddingX={2}
-        paddingY={1}
-        flexGrow={1}
-      >
-        {selection.section === 'adapters' && (
-          <AdapterDetailPanel
-            adapter={currentAdapter}
-            testing={testing}
+    <Box flexDirection="row" width="100%">
+      {/* Sidebar */}
+      <Box flexDirection="column" width={26} paddingX={1} paddingY={1}>
+        <Text color={colors.textMuted}>ADAPTERS</Text>
+        <Box flexDirection="column" marginTop={0} marginBottom={1}>
+          {ADAPTERS.map((adapter, i) => {
+            const info = ADAPTER_INFO[adapter];
+            const isSelected = selection.section === 'adapters' && selection.index === i;
+            return (
+              <Box key={adapter} flexDirection="row" paddingLeft={2}>
+                <Text color={isSelected ? colors.green : colors.textMuted}>
+                  {isSelected ? '\u25CF' : '\u25CB'}{' '}
+                </Text>
+                <Text color={toolColor(adapter)}>{adapter}</Text>
+                <Text color={info.installed ? colors.green : colors.red}>
+                  {'  '}{info.installed ? '\u2713' : '\u2717'}
+                </Text>
+              </Box>
+            );
+          })}
+        </Box>
+        <Text color={colors.textMuted}>SETTINGS</Text>
+        <Box flexDirection="column" marginTop={0}>
+          {SETTINGS.map((s, i) => {
+            const isSelected = selection.section === 'settings' && selection.index === i;
+            return (
+              <Box key={s} flexDirection="row" paddingLeft={2}>
+                <Text color={isSelected ? colors.green : colors.textMuted}>
+                  {isSelected ? '\u25CF' : '\u25CB'}{' '}
+                </Text>
+                <Text color={isSelected ? colors.text : colors.textMuted}>{s}</Text>
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+
+      {/* Main panel */}
+      <Box flexDirection="column" flexGrow={1} paddingY={1}>
+        <Box flexDirection="column" paddingLeft={1} marginBottom={1}>
+          <Text color={colors.textMuted}>Adapters</Text>
+        </Box>
+        {ADAPTERS.map((adapter, i) => (
+          <AdapterCard
+            key={adapter}
+            adapter={adapter}
+            isSelected={selection.section === 'adapters' && selection.index === i}
+            testing={selection.section === 'adapters' && selection.index === i && testing}
           />
-        )}
-        {selection.section === 'settings' && (
-          <SettingDetailPanel setting={currentSetting} />
-        )}
+        ))}
+        <HRule />
+        <Box marginTop={1}>
+          {selection.section === 'settings' && (
+            <SettingsPanel setting={currentSetting} />
+          )}
+          {selection.section === 'adapters' && (
+            <Box paddingLeft={1} flexDirection="column">
+              <Text color={colors.textMuted}>Settings</Text>
+              <Box flexDirection="column" paddingLeft={2} marginTop={1}>
+                <KVRow label="Classifiers" value="21 rules (default)" />
+                <KVRow label="Redaction" value="9 patterns active" />
+                <KVRow label="Context" value="128 KB max" />
+                <KVRow label="Bridge" value="standard (threshold: 2)" />
+              </Box>
+            </Box>
+          )}
+        </Box>
       </Box>
     </Box>
   );

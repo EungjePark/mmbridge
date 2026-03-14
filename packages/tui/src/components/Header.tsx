@@ -4,48 +4,43 @@ import { colors } from '../theme.js';
 
 type TabId = 'review' | 'config' | 'sessions' | 'diff';
 
-interface TabDef {
-  id: TabId;
-  label: string;
-}
-
-const TABS: TabDef[] = [
-  { id: 'review', label: 'Review' },
-  { id: 'config', label: 'Config' },
-  { id: 'sessions', label: 'Sessions' },
-  { id: 'diff', label: 'Diff' },
-];
+const TAB_LABELS: Record<TabId, string> = {
+  review: 'review',
+  config: 'config',
+  sessions: 'sessions',
+  diff: 'diff',
+};
 
 interface HeaderProps {
   activeTab: TabId;
-  onTabChange?: (tab: TabId) => void;
+}
+
+// Dim horizontal rule — used as section separator throughout the TUI
+export function HRule(): React.ReactElement {
+  return (
+    <Box paddingX={1}>
+      <Text color={colors.border}>{'─'.repeat(80)}</Text>
+    </Box>
+  );
 }
 
 export function Header({ activeTab }: HeaderProps): React.ReactElement {
+  const statusDot = '\u25CF'; // ●
+
   return (
-    <Box
-      borderStyle="single"
-      borderColor={colors.borderIdle}
-      paddingX={1}
-      flexDirection="row"
-      gap={2}
-    >
-      <Text color={colors.cyan} bold>
-        MMBRIDGE v0.2.0
-      </Text>
-      <Text color={colors.dim}>{'\u2500\u2500\u2500'}</Text>
-      {TABS.map((tab) => {
-        const isActive = tab.id === activeTab;
-        return (
-          <Text
-            key={tab.id}
-            color={isActive ? colors.green : colors.dim}
-            bold={isActive}
-          >
-            {isActive ? `[${tab.label.toUpperCase()}]` : tab.label}
-          </Text>
-        );
-      })}
+    <Box flexDirection="column">
+      <Box paddingX={1} paddingY={0} flexDirection="row" justifyContent="space-between">
+        <Box flexDirection="row" gap={1}>
+          <Text color={colors.green} bold>mmbridge</Text>
+          <Text color={colors.textMuted}>{'\u00B7'}</Text>
+          <Text color={colors.green}>{statusDot}</Text>
+          <Text color={colors.textMuted}>Ready</Text>
+          <Text color={colors.textMuted}>{'\u00B7'}</Text>
+          <Text color={colors.text}>{TAB_LABELS[activeTab]} mode</Text>
+        </Box>
+        <Text color={colors.textMuted}>v0.2.0</Text>
+      </Box>
+      <HRule />
     </Box>
   );
 }

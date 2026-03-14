@@ -9,28 +9,36 @@ interface KeyBinding {
 }
 
 const NAV_BINDINGS: KeyBinding[] = [
-  { key: '1-4', description: 'Switch tabs' },
-  { key: 'Tab', description: 'Toggle focus zone' },
-  { key: 'j / k', description: 'Move selection down/up' },
-  { key: '?', description: 'Toggle this help' },
-  { key: 'Esc', description: 'Close overlay / cancel' },
-  { key: 'q', description: 'Quit' },
+  { key: '1-4',     description: 'Switch tabs' },
+  { key: 'Tab',     description: 'Toggle focus zone' },
+  { key: 'j / k',   description: 'Move selection down/up' },
+  { key: '?',       description: 'Toggle this help' },
+  { key: 'Esc',     description: 'Close overlay' },
+  { key: 'q',       description: 'Quit' },
 ];
 
 const ACTION_BINDINGS: KeyBinding[] = [
-  { key: 'Enter', description: 'Confirm / run' },
-  { key: 'r', description: 'Refresh current view' },
-  { key: 'd', description: 'Open diff for selection' },
-  { key: 'f', description: 'Filter sessions' },
-  { key: 'c', description: 'Copy result to clipboard' },
-  { key: 'x', description: 'Clear result / reset' },
+  { key: 'Enter',   description: 'Confirm / run' },
+  { key: 'r',       description: 'Refresh current view' },
+  { key: 'd',       description: 'Open diff for selection' },
+  { key: 'f',       description: 'Filter sessions' },
+  { key: 'c',       description: 'Copy result to clipboard' },
+  { key: 'x',       description: 'Clear result / reset' },
 ];
 
 function KeyRow({ binding }: { binding: KeyBinding }): React.ReactElement {
   return (
-    <Box flexDirection="row" gap={1}>
+    <Box flexDirection="row" marginBottom={0}>
       <Text color={colors.yellow} bold>{binding.key.padEnd(10)}</Text>
       <Text color={colors.textMuted}>{binding.description}</Text>
+    </Box>
+  );
+}
+
+function DimRule(): React.ReactElement {
+  return (
+    <Box marginY={1}>
+      <Text color={colors.border}>{'─'.repeat(52)}</Text>
     </Box>
   );
 }
@@ -48,8 +56,6 @@ export function HelpOverlay(): React.ReactElement {
     <Box
       position="absolute"
       flexDirection="column"
-      borderStyle="double"
-      borderColor={colors.borderFocus}
       paddingX={2}
       paddingY={1}
       width={58}
@@ -57,18 +63,24 @@ export function HelpOverlay(): React.ReactElement {
       <Box justifyContent="center" marginBottom={1}>
         <Text color={colors.green} bold>Keyboard Shortcuts</Text>
       </Box>
+      <DimRule />
       <Box flexDirection="row" gap={4}>
         <Box flexDirection="column" flexGrow={1}>
-          <Text color={colors.cyan} bold>NAVIGATION</Text>
-          {NAV_BINDINGS.map((b) => <KeyRow key={b.key} binding={b} />)}
+          <Text color={colors.textMuted}>NAVIGATION</Text>
+          <Box marginTop={1} flexDirection="column">
+            {NAV_BINDINGS.map((b) => <KeyRow key={b.key} binding={b} />)}
+          </Box>
         </Box>
         <Box flexDirection="column" flexGrow={1}>
-          <Text color={colors.cyan} bold>ACTIONS</Text>
-          {ACTION_BINDINGS.map((b) => <KeyRow key={b.key} binding={b} />)}
+          <Text color={colors.textMuted}>ACTIONS</Text>
+          <Box marginTop={1} flexDirection="column">
+            {ACTION_BINDINGS.map((b) => <KeyRow key={b.key} binding={b} />)}
+          </Box>
         </Box>
       </Box>
-      <Box justifyContent="center" marginTop={1}>
-        <Text color={colors.dim}>Press ? or Esc to close</Text>
+      <DimRule />
+      <Box justifyContent="center">
+        <Text color={colors.textDim}>Press ? or Esc to close</Text>
       </Box>
     </Box>
   );
