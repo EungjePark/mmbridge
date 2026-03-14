@@ -6,8 +6,9 @@ import type { DashboardOptions } from './commands/dashboard.js';
 import type { DoctorOptions } from './commands/doctor.js';
 import type { SyncAgentsOptions } from './commands/sync-agents.js';
 import type { InitCommandOptions } from './commands/init.js';
+import type { DiffCommandOptions } from './commands/diff.js';
 
-export type { ReviewCommandOptions, FollowupCommandOptions, DashboardOptions, DoctorOptions, SyncAgentsOptions, InitCommandOptions };
+export type { ReviewCommandOptions, FollowupCommandOptions, DashboardOptions, DoctorOptions, SyncAgentsOptions, InitCommandOptions, DiffCommandOptions };
 
 export async function main(): Promise<void> {
   const program = new Command();
@@ -105,6 +106,19 @@ export async function main(): Promise<void> {
     .action(async (opts: InitCommandOptions) => {
       const { runInitCommand } = await import('./commands/init.js');
       await runInitCommand(opts);
+    });
+
+  // ── diff ──
+  program
+    .command('diff')
+    .description('Show git diff annotated with review findings')
+    .option('-t, --tool <tool>', 'Filter findings by tool')
+    .option('--base-ref <ref>', 'Git base ref for diff')
+    .option('-p, --project <dir>', 'Project directory (default: cwd)')
+    .option('--session <id>', 'Specific session ID to use')
+    .action(async (opts: DiffCommandOptions) => {
+      const { runDiffCommand } = await import('./commands/diff.js');
+      await runDiffCommand(opts);
     });
 
   await program.parseAsync(process.argv);

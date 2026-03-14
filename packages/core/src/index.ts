@@ -68,6 +68,8 @@ export { createContext, cleanupContext } from './context.js';
 
 export { runBridge, mergeBridgeFindings } from './bridge.js';
 
+export { parseFindings, detectParseState } from './finding-parser.js';
+
 export {
   loadConfig,
   resolveClassifiers,
