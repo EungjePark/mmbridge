@@ -28,7 +28,7 @@ export async function runDoctorCommand(options: DoctorOptions): Promise<void> {
   const runtimeAuthModel = process.env.MMBRIDGE_AUTH_MODEL ?? 'claude-sonnet-4-5';
 
   const sessionFileHints: Record<string, string> = {};
-  for (const tool of ['kimi', 'qwen', 'codex', 'gemini']) {
+  for (const tool of defaultRegistry.list()) {
     const hint = path.join(mmbridgeHome, 'sessions', `${tool}.jsonl`);
     try {
       await fs.access(hint);

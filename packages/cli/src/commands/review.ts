@@ -125,7 +125,7 @@ export async function runReviewCommand(options: ReviewCommandOptions): Promise<v
     summary: adapterResult.text,
     findings: enriched.findings,
     resultIndex,
-    changedFiles: workspace.copiedFileCount,
+    changedFiles: workspace.changedFiles.length,
     copiedFiles: workspace.copiedFileCount,
     followupSupported: adapterResult.followupSupported,
   };
