@@ -28,14 +28,29 @@ export const DEFAULT_CLASSIFIERS: FileClassifierRule[] = [
   { pattern: 'docs/', category: 'Documentation' },
 ];
 
+function isMmbridgeConfig(value: unknown): value is MmbridgeConfig {
+  if (value === null || typeof value !== 'object') return false;
+  const obj = value as Record<string, unknown>;
+  if (obj.classifiers !== undefined && !Array.isArray(obj.classifiers)) return false;
+  if (obj.extendDefaultClassifiers !== undefined && typeof obj.extendDefaultClassifiers !== 'boolean') return false;
+  if (obj.adapters !== undefined && (typeof obj.adapters !== 'object' || obj.adapters === null)) return false;
+  return true;
+}
+
 export async function loadConfig(projectDir: string): Promise<MmbridgeConfig> {
   for (const filename of CONFIG_FILENAMES) {
     const configPath = path.join(projectDir, filename);
     try {
       const raw = await fs.readFile(configPath, 'utf8');
-      return JSON.parse(raw) as MmbridgeConfig;
-    } catch {
-      continue;
+      const parsed: unknown = JSON.parse(raw);
+      if (!isMmbridgeConfig(parsed)) {
+        throw new Error(`Invalid mmbridge config at ${configPath}`);
+      }
+      return parsed;
+    } catch (err) {
+      if (err instanceof SyntaxError || (err instanceof Error && err.message.startsWith('Invalid mmbridge'))) {
+        throw err;
+      }
     }
   }
   return {};

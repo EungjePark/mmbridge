@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import { ensureBinary, invoke } from './utils.js';
+import { ensureBinary, invoke, assertSafeSessionId } from './utils.js';
 import type { AdapterResult } from './types.js';
 
 export async function runQwenReview({
@@ -16,6 +16,9 @@ export async function runQwenReview({
   const resolvedSessionId = normalizeUuid(sessionId);
   const args = ['--session-id', resolvedSessionId, '--chat-recording', '--yolo', '-p', prompt];
   const result = await invoke('qwen', args, { cwd: workspace, timeoutMs: 300000 });
+  if (!result.ok) {
+    throw new Error(`qwen CLI exited with code ${result.code}: ${result.stderr.slice(0, 500)}`);
+  }
   return {
     tool: 'qwen',
     externalSessionId: resolvedSessionId,
@@ -36,9 +39,13 @@ export async function runQwenFollowup({
   sessionId: string;
   prompt: string;
 }): Promise<AdapterResult> {
+  assertSafeSessionId(sessionId);
   await ensureBinary('qwen');
   const args = ['--resume', sessionId, '--chat-recording', '--yolo', '-p', prompt];
   const result = await invoke('qwen', args, { cwd: workspace, timeoutMs: 300000 });
+  if (!result.ok) {
+    throw new Error(`qwen CLI exited with code ${result.code}: ${result.stderr.slice(0, 500)}`);
+  }
   return {
     tool: 'qwen',
     externalSessionId: sessionId,

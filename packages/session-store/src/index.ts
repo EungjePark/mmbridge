@@ -4,6 +4,14 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { Session, SessionListOptions, ProjectState } from './types.js';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function assertValidId(id: string): void {
+  if (!UUID_PATTERN.test(id)) {
+    throw new Error(`Invalid session ID format: ${id}`);
+  }
+}
+
 function defaultBaseDir(): string {
   return path.join(os.homedir(), '.mmbridge');
 }
@@ -46,6 +54,7 @@ export class SessionStore {
   }
 
   async get(id: string): Promise<Session | null> {
+    assertValidId(id);
     try {
       const raw = await fs.readFile(this.filePath(id), 'utf8');
       return JSON.parse(raw) as Session;
@@ -78,6 +87,7 @@ export class SessionStore {
   }
 
   async remove(id: string): Promise<boolean> {
+    assertValidId(id);
     try {
       await fs.unlink(this.filePath(id));
       return true;

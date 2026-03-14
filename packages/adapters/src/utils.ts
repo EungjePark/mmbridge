@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { RunResult, RunCommandOptions } from '@mmbridge/core';
 
 async function loadCoreUtils(): Promise<{
@@ -22,6 +23,20 @@ export async function invoke(
 ): Promise<RunResult> {
   const { runCommand } = await loadCoreUtils();
   return runCommand(command, args, options);
+}
+
+/** Validate session ID is safe for use as CLI argument */
+export function assertSafeSessionId(id: string): void {
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) {
+    throw new Error(`Invalid session ID format: ${id}`);
+  }
+}
+
+/** Validate a file path does not escape its root directory */
+export function assertPathContained(filePath: string, root: string): boolean {
+  const resolved = path.resolve(filePath);
+  const resolvedRoot = path.resolve(root);
+  return resolved.startsWith(resolvedRoot + path.sep) || resolved === resolvedRoot;
 }
 
 export function parseExternalSessionId(

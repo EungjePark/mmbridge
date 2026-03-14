@@ -33,8 +33,12 @@ export async function createContext(options: CreateContextOptions = {}): Promise
     if (isBinaryExtension(relPath)) continue;
     if (isPotentialSecretFile(relPath)) continue;
 
-    const srcPath = path.join(projectDir, relPath);
-    const destPath = path.join(workspace, 'files', relPath);
+    const srcPath = path.resolve(projectDir, relPath);
+    const destPath = path.resolve(workspace, 'files', relPath);
+
+    // Guard against path traversal from git output
+    if (!srcPath.startsWith(projectDir + path.sep)) continue;
+    if (!destPath.startsWith(path.resolve(workspace, 'files') + path.sep)) continue;
 
     let content: string;
     try {
@@ -63,16 +67,16 @@ export async function createContext(options: CreateContextOptions = {}): Promise
   // Write context index file
   const contextPath = path.join(workspace, 'context.md');
   const contextContent = [
-    `# MMBridge Context`,
-    ``,
+    '# MMBridge Context',
+    '',
     `- **Project**: ${projectDir}`,
     `- **Mode**: ${mode}`,
     `- **Branch**: ${head.branch} (${head.sha})`,
     `- **Base ref**: ${baseRef}`,
     `- **Changed files**: ${changedFiles.length}`,
     `- **Copied files**: ${copiedFileCount}`,
-    ``,
-    `## Changed Files`,
+    '',
+    '## Changed Files',
     changedFiles.map((f) => `- ${f}`).join('\n'),
   ].join('\n');
   await fs.writeFile(contextPath, contextContent, 'utf8');
