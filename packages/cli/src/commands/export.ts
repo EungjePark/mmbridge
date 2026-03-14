@@ -1,16 +1,17 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import type { ResultIndex, Finding } from '@mmbridge/core';
 
 export interface ExportableReport {
   localSessionId?: string;
   externalSessionId?: string;
   workspace?: string;
   summary: string;
-  findings: Array<{ severity?: string; file?: string; line?: number | null; message?: string }>;
+  findings: Finding[];
+  resultIndex?: ResultIndex;
   changedFiles?: number;
   copiedFiles?: number;
   followupSupported?: boolean;
-  [key: string]: unknown;
 }
 
 export async function exportReport(report: ExportableReport, outputPath: string): Promise<void> {

@@ -90,7 +90,6 @@ export async function main(): Promise<void> {
     .command('sync-agents')
     .description('Sync agent definitions to Claude agents directory')
     .option('--dry-run', 'Preview changes without writing files')
-    .option('-v, --verbose', 'Verbose output')
     .action(async (opts: SyncAgentsOptions) => {
       const { runSyncAgentsCommand } = await import('./commands/sync-agents.js');
       await runSyncAgentsCommand(opts);
