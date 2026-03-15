@@ -21,18 +21,31 @@ defaultRegistry.register(claudeAdapter);
 
 export { defaultRegistry };
 
-export async function initRegistry(): Promise<AdapterRegistry> {
-  try {
-    const { loadConfig } = await import('@mmbridge/core');
-    const config = await loadConfig(process.cwd());
-    await defaultRegistry.loadFromConfig(config);
-  } catch {
-    // Config load failure is non-critical — built-in adapters still work
+let initializedProjectDir: string | null = null;
+let initializationPromise: Promise<AdapterRegistry> | null = null;
+
+export async function initRegistry(projectDir = process.cwd()): Promise<AdapterRegistry> {
+  if (initializedProjectDir === projectDir && initializationPromise) {
+    return initializationPromise;
   }
-  return defaultRegistry;
+
+  initializedProjectDir = projectDir;
+  initializationPromise = (async () => {
+    try {
+      const { loadConfig } = await import('@mmbridge/core');
+      const config = await loadConfig(projectDir);
+      await defaultRegistry.loadFromConfig(config);
+    } catch {
+      // Config load failure is non-critical — built-in adapters still work
+    }
+    return defaultRegistry;
+  })();
+
+  return initializationPromise;
 }
 
 export async function runReviewAdapter(tool: string, options: ReviewOptions): Promise<AdapterResult> {
+  await initRegistry(options.cwd ?? options.workspace);
   const adapter = defaultRegistry.get(tool);
   if (!adapter) {
     throw new Error(`Unsupported tool: ${tool}. Available: ${defaultRegistry.list().join(', ')}`);
@@ -41,6 +54,7 @@ export async function runReviewAdapter(tool: string, options: ReviewOptions): Pr
 }
 
 export async function runFollowupAdapter(tool: string, options: FollowupOptions): Promise<AdapterResult> {
+  await initRegistry(options.cwd ?? options.workspace);
   const adapter = defaultRegistry.get(tool);
   if (!adapter) {
     throw new Error(`Unsupported tool: ${tool}. Available: ${defaultRegistry.list().join(', ')}`);

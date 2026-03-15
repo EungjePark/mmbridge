@@ -13,9 +13,10 @@ import { SessionsView } from './views/SessionsView.js';
 
 interface AppProps {
   initialTab?: TabId;
+  version?: string;
 }
 
-export function App({ initialTab }: AppProps): React.ReactElement {
+export function App({ initialTab, version }: AppProps): React.ReactElement {
   const [state, dispatch] = useReducer(tuiReducer, {
     ...initialState,
     ...(initialTab ? { activeTab: initialTab } : {}),
@@ -63,7 +64,7 @@ export function App({ initialTab }: AppProps): React.ReactElement {
   return (
     <TuiContext.Provider value={[state, dispatch]}>
       <Box flexDirection="column" width="100%" height="100%">
-        <Header activeTab={state.activeTab} branch={branch} dirtyCount={dirtyCount} />
+        <Header activeTab={state.activeTab} branch={branch} dirtyCount={dirtyCount} version={version} />
         <Box flexGrow={1}>
           {state.activeTab === 'dashboard' && <DashboardView />}
           {state.activeTab === 'sessions' && <SessionsView />}

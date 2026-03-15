@@ -57,3 +57,22 @@ test('loadFromConfig silently skips invalid module paths', async () => {
   await registry.loadFromConfig(config);
   assert.equal(registry.has('broken'), false);
 });
+
+test('loadFromConfig applies command override to registered adapters', async () => {
+  const registry = new AdapterRegistry();
+  const existing = {
+    name: 'kimi',
+    binary: 'kimi',
+    review: async () => ({}),
+    followup: async () => ({}),
+  };
+  registry.register(existing);
+
+  await registry.loadFromConfig({
+    adapters: {
+      kimi: { command: 'kaku-kimi' },
+    },
+  });
+
+  assert.equal(registry.get('kimi')?.binary, 'kaku-kimi');
+});

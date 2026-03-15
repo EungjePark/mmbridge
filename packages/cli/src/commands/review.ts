@@ -28,7 +28,7 @@ export async function runReviewCommand(options: ReviewCommandOptions): Promise<v
   const bridge = (options.bridge ?? 'none') as 'none' | 'standard' | 'interpreted';
 
   const { runReviewPipeline, commandExists } = await importCore();
-  const { defaultRegistry, runReviewAdapter } = await importAdapters();
+  const { defaultRegistry, runReviewAdapter } = await importAdapters(projectDir);
   const { SessionStore } = await importSessionStore();
   const { renderReviewConsole } = await importTui();
 

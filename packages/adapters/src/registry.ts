@@ -38,31 +38,43 @@ export class AdapterRegistry {
   async loadFromConfig(config: MmbridgeConfig): Promise<void> {
     const adapterConfigs = config.adapters ?? {};
     for (const [name, cfg] of Object.entries(adapterConfigs)) {
-      if (this.has(name)) continue;
       const modulePath = (cfg as Record<string, unknown>).module;
-      if (typeof modulePath !== 'string') continue;
-      try {
-        const mod: Record<string, unknown> = await import(modulePath);
-        const candidate = (mod.default ?? mod.adapter) as Record<string, unknown> | undefined;
-        if (
-          candidate &&
-          typeof candidate.name === 'string' &&
-          typeof candidate.binary === 'string' &&
-          typeof candidate.review === 'function' &&
-          typeof candidate.followup === 'function'
-        ) {
-          const adapter: AdapterDefinition = {
-            name: candidate.name,
-            binary: candidate.binary,
-            review: candidate.review as AdapterDefinition['review'],
-            followup: candidate.followup as AdapterDefinition['followup'],
-          };
-          this.register(adapter);
+      const commandOverride = (cfg as Record<string, unknown>).command;
+
+      if (typeof modulePath === 'string' && !this.has(name)) {
+        try {
+          const mod: Record<string, unknown> = await import(modulePath);
+          const candidate = (mod.default ?? mod.adapter) as Record<string, unknown> | undefined;
+          if (
+            candidate &&
+            typeof candidate.name === 'string' &&
+            typeof candidate.binary === 'string' &&
+            typeof candidate.review === 'function' &&
+            typeof candidate.followup === 'function'
+          ) {
+            const adapter: AdapterDefinition = {
+              name: candidate.name,
+              binary: candidate.binary,
+              review: candidate.review as AdapterDefinition['review'],
+              followup: candidate.followup as AdapterDefinition['followup'],
+            };
+            this.register(adapter);
+          }
+        } catch (err) {
+          process.stderr.write(
+            `[mmbridge] Failed to load adapter "${name}" from ${modulePath}: ${err instanceof Error ? err.message : String(err)}\n`,
+          );
         }
-      } catch (err) {
-        process.stderr.write(
-          `[mmbridge] Failed to load adapter "${name}" from ${modulePath}: ${err instanceof Error ? err.message : String(err)}\n`,
-        );
+      }
+
+      if (typeof commandOverride === 'string') {
+        const existing = this.get(name);
+        if (existing) {
+          this.register({
+            ...existing,
+            binary: commandOverride,
+          });
+        }
       }
     }
   }

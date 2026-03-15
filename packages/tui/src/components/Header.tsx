@@ -14,6 +14,7 @@ interface HeaderProps {
   activeTab: TabId;
   branch?: string;
   dirtyCount?: number;
+  version?: string;
 }
 
 // Dim horizontal rule — stretches to full terminal width
@@ -26,7 +27,7 @@ export function HRule(): React.ReactElement {
   );
 }
 
-export function Header({ activeTab, branch, dirtyCount }: HeaderProps): React.ReactElement {
+export function Header({ activeTab, branch, dirtyCount, version }: HeaderProps): React.ReactElement {
   const branchLabel = branch ? ` ${branch}${dirtyCount != null && dirtyCount > 0 ? ` *${dirtyCount}` : ''}` : '';
 
   return (
@@ -59,7 +60,7 @@ export function Header({ activeTab, branch, dirtyCount }: HeaderProps): React.Re
         </Box>
         <Box flexDirection="row" gap={1} alignItems="flex-start">
           {branchLabel.length > 0 && <Text color={colors.overlay1}>{branchLabel}</Text>}
-          <Text color={colors.overlay1}>v0.6.0</Text>
+          <Text color={colors.overlay1}>v{version ?? 'dev'}</Text>
         </Box>
       </Box>
       <HRule />

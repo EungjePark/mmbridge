@@ -10,7 +10,7 @@ export interface DoctorOptions {
 
 export async function runDoctorCommand(options: DoctorOptions): Promise<void> {
   const { commandExists } = await importCore();
-  const { defaultRegistry } = await importAdapters();
+  const { defaultRegistry } = await importAdapters(process.cwd());
   const { renderDoctor, renderSetupWizard } = await importTui();
 
   const adapterBinaries = defaultRegistry.values().map((a) => a.binary);

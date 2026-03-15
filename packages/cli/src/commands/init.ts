@@ -35,7 +35,7 @@ export async function runInitCommand(options: InitCommandOptions): Promise<void>
   }
 
   const { commandExists } = await importCore();
-  const { defaultRegistry } = await importAdapters();
+  const { defaultRegistry } = await importAdapters(projectDir);
   const installedAdapters = await detectInstalledAdapters(defaultRegistry, commandExists);
 
   if (options.yes) {

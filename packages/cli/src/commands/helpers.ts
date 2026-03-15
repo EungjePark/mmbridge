@@ -16,7 +16,11 @@ export function exitWithError(message: string, code = 1): never {
 
 // Lazy dependency loaders — keeps `mmbridge --help` fast
 export const importCore = () => import('@mmbridge/core');
-export const importAdapters = () => import('@mmbridge/adapters');
+export const importAdapters = async (projectDir = process.cwd()) => {
+  const adapters = await import('@mmbridge/adapters');
+  await adapters.initRegistry(projectDir);
+  return adapters;
+};
 export const importSessionStore = () => import('@mmbridge/session-store');
 export const importTui = () => import('@mmbridge/tui');
 export const importIntegrations = () => import('@mmbridge/integrations');

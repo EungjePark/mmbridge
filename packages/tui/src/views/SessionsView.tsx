@@ -37,15 +37,16 @@ function sessionRowPrefix(isSelected: boolean, isFollowup: boolean): { text: str
 function SessionRow({ session, isSelected, isFollowup }: SessionRowProps): React.ReactElement {
   const findingCount = (session.findings ?? []).length;
   const prefix = sessionRowPrefix(isSelected, isFollowup);
+  const when = formatRelativeTime(session.createdAt).padEnd(8);
 
   return (
     <Box flexDirection="row">
       <Text color={prefix.color}>{prefix.text}</Text>
-      <Text color={isSelected ? colors.text : colors.overlay1}>{formatCompactDate(session.createdAt)}</Text>
+      <Text color={isSelected ? colors.text : colors.overlay1}>{when}</Text>
       <Text> </Text>
       <Text color={toolColor(session.tool)}>{session.tool.padEnd(7)}</Text>
-      <Text color={isSelected ? colors.subtext0 : colors.overlay0}>{session.mode.padEnd(10)}</Text>
-      <Text color={findingCount > 0 ? colors.yellow : colors.textDim}>{String(findingCount)}</Text>
+      <Text> </Text>
+      <Text color={findingCount > 0 ? colors.yellow : colors.textDim}>{String(findingCount).padStart(2)}</Text>
     </Box>
   );
 }
@@ -246,7 +247,8 @@ export function SessionsView(): React.ReactElement {
     );
   }
 
-  const visibleSessions = sessions.slice(0, PAGE_SIZE);
+  const pageStart = Math.floor(clampedIndex / PAGE_SIZE) * PAGE_SIZE;
+  const visibleSessions = sessions.slice(pageStart, pageStart + PAGE_SIZE);
   const selectedFindings = selected ? sessionToFindings(selected) : [];
 
   // Column widths for 3-column layout
@@ -273,13 +275,20 @@ export function SessionsView(): React.ReactElement {
           <Box flexDirection="column">
             {visibleSessions.map((s, i) => {
               const isFollowup = s.externalSessionId != null || s.parentSessionId != null;
-              return <SessionRow key={s.id} session={s} isSelected={i === clampedIndex} isFollowup={isFollowup} />;
+              return (
+                <SessionRow
+                  key={s.id}
+                  session={s}
+                  isSelected={pageStart + i === clampedIndex}
+                  isFollowup={isFollowup}
+                />
+              );
             })}
           </Box>
 
           <Box marginTop={1}>
             <Text color={colors.textDim}>
-              {visibleSessions.length}/{sessions.length}
+              {pageStart + 1}-{pageStart + visibleSessions.length}/{sessions.length}
             </Text>
           </Box>
         </Box>

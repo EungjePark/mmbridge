@@ -20,7 +20,7 @@ export async function runFollowupCommand(options: FollowupCommandOptions): Promi
   const projectDir = resolveProjectDir(options.projectDir);
 
   const { SessionStore } = await importSessionStore();
-  const { runFollowupAdapter } = await importAdapters();
+  const { runFollowupAdapter } = await importAdapters(projectDir);
   const { renderReviewConsole } = await importTui();
 
   const sessionStore = new SessionStore(projectDir);
