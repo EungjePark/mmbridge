@@ -5,7 +5,7 @@ import { geminiAdapter } from './gemini.js';
 import { kimiAdapter } from './kimi.js';
 import { qwenAdapter } from './qwen.js';
 import { AdapterRegistry } from './registry.js';
-import type { AdapterResult, FollowupOptions, ReviewOptions } from './types.js';
+import type { AdapterDefinition, AdapterResult, FollowupOptions, ReviewOptions } from './types.js';
 
 export type { ReviewOptions, FollowupOptions, AdapterResult } from './types.js';
 export type { AdapterDefinition } from './types.js';
@@ -44,18 +44,18 @@ export async function initRegistry(projectDir = process.cwd()): Promise<AdapterR
   return initializationPromise;
 }
 
-export async function runReviewAdapter(tool: string, options: ReviewOptions): Promise<AdapterResult> {
+function getAdapterOrThrow(tool: string): AdapterDefinition {
   const adapter = defaultRegistry.get(tool);
   if (!adapter) {
     throw new Error(`Unsupported tool: ${tool}. Available: ${defaultRegistry.list().join(', ')}`);
   }
-  return adapter.review(options);
+  return adapter;
+}
+
+export async function runReviewAdapter(tool: string, options: ReviewOptions): Promise<AdapterResult> {
+  return getAdapterOrThrow(tool).review(options);
 }
 
 export async function runFollowupAdapter(tool: string, options: FollowupOptions): Promise<AdapterResult> {
-  const adapter = defaultRegistry.get(tool);
-  if (!adapter) {
-    throw new Error(`Unsupported tool: ${tool}. Available: ${defaultRegistry.list().join(', ')}`);
-  }
-  return adapter.followup(options);
+  return getAdapterOrThrow(tool).followup(options);
 }

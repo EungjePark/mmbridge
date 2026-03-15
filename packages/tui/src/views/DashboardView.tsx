@@ -62,14 +62,8 @@ function ConnectionRow({ adapter }: ConnectionRowProps): React.ReactElement {
       {isReady ? (
         <>
           <Text color={colors.green}>{'ready'}</Text>
-          {sessionInfo ? (
-            <>
-              <Text color={colors.textDim}>{'  '}</Text>
-              <Text color={colors.overlay0}>{sessionInfo}</Text>
-            </>
-          ) : (
-            <Text color={colors.textDim}>{'  no sessions'}</Text>
-          )}
+          <Text color={colors.textDim}>{'  '}</Text>
+          <Text color={sessionInfo ? colors.overlay0 : colors.textDim}>{sessionInfo ?? 'no sessions'}</Text>
         </>
       ) : (
         <Text color={colors.textDim}>{'──'}</Text>
@@ -179,7 +173,7 @@ function QuickStartSection(): React.ReactElement {
         QUICK START
       </Text>
       {QUICK_START_COMMANDS.map((cmd) => (
-        <Box key={cmd} flexDirection="row">
+        <Box key={cmd}>
           <Text color={colors.peach}>$ </Text>
           <Text color={colors.subtext0}>{cmd}</Text>
         </Box>

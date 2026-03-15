@@ -5,11 +5,20 @@ import { Header } from './components/Header.js';
 import { HelpOverlay } from './components/HelpOverlay.js';
 import { StatusBar } from './components/StatusBar.js';
 import { useLoadData } from './hooks/use-data.js';
-import { TAB_ORDER, TuiContext, initialState, tuiReducer } from './store.js';
+import { TuiContext, initialState, tuiReducer } from './store.js';
 import type { TabId } from './store.js';
 import { ConfigView } from './views/ConfigView.js';
 import { DashboardView } from './views/DashboardView.js';
 import { SessionsView } from './views/SessionsView.js';
+
+const KEY_TO_TAB: Record<string, TabId> = {
+  '1': 'dashboard',
+  d: 'dashboard',
+  '2': 'sessions',
+  s: 'sessions',
+  '3': 'config',
+  c: 'config',
+};
 
 interface AppProps {
   initialTab?: TabId;
@@ -31,28 +40,30 @@ export function App({ initialTab, version }: AppProps): React.ReactElement {
     }
 
     // Tab switching: number keys + letter shortcuts (d/s/c for xterm compat)
-    if (input === '1' || input === 'd') dispatch({ type: 'SWITCH_TAB', tab: 'dashboard' });
-    if (input === '2' || input === 's') dispatch({ type: 'SWITCH_TAB', tab: 'sessions' });
-    if (input === '3' || input === 'c') dispatch({ type: 'SWITCH_TAB', tab: 'config' });
+    const tabTarget = KEY_TO_TAB[input];
+    if (tabTarget) {
+      dispatch({ type: 'SWITCH_TAB', tab: tabTarget });
+      return;
+    }
 
     // Tab switching: arrow keys
-    if (key.leftArrow) dispatch({ type: 'SWITCH_TAB_DELTA', delta: -1 });
-    if (key.rightArrow) dispatch({ type: 'SWITCH_TAB_DELTA', delta: 1 });
+    if (key.leftArrow) {
+      dispatch({ type: 'SWITCH_TAB_DELTA', delta: -1 });
+      return;
+    }
+    if (key.rightArrow) {
+      dispatch({ type: 'SWITCH_TAB_DELTA', delta: 1 });
+      return;
+    }
 
-    // Tab key: switch tabs (except in config where it toggles focus zone)
+    // Tab key: focus toggle in config, tab cycle elsewhere
     if (key.tab && state.activeTab === 'config') {
-      dispatch({
-        type: 'SET_FOCUS',
-        zone: state.focusZone === 'sidebar' ? 'main' : 'sidebar',
-      });
-    } else if (key.tab && !key.shift) {
-      const idx = TAB_ORDER.indexOf(state.activeTab);
-      const next = TAB_ORDER[(idx + 1) % TAB_ORDER.length] as TabId;
-      dispatch({ type: 'SWITCH_TAB', tab: next });
-    } else if (key.tab && key.shift) {
-      const idx = TAB_ORDER.indexOf(state.activeTab);
-      const prev = TAB_ORDER[(idx - 1 + TAB_ORDER.length) % TAB_ORDER.length] as TabId;
-      dispatch({ type: 'SWITCH_TAB', tab: prev });
+      dispatch({ type: 'SET_FOCUS', zone: state.focusZone === 'sidebar' ? 'main' : 'sidebar' });
+      return;
+    }
+    if (key.tab) {
+      dispatch({ type: 'SWITCH_TAB_DELTA', delta: key.shift ? -1 : 1 });
+      return;
     }
 
     // Help & quit
@@ -75,8 +86,8 @@ export function App({ initialTab, version }: AppProps): React.ReactElement {
         <Header activeTab={state.activeTab} branch={branch} dirtyCount={dirtyCount} version={version} />
         <Box flexGrow={1}>
           {state.activeTab === 'dashboard' && <DashboardView />}
-          {state.activeTab === 'sessions' && <SessionsView key="sess" />}
-          {state.activeTab === 'config' && <ConfigView key="conf" />}
+          {state.activeTab === 'sessions' && <SessionsView />}
+          {state.activeTab === 'config' && <ConfigView />}
         </Box>
         <StatusBar toast={state.toast} activeTab={state.activeTab} />
         {state.helpVisible && <HelpOverlay />}

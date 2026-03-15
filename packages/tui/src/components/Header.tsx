@@ -19,7 +19,8 @@ interface HeaderProps {
 
 // Standalone dim horizontal rule — stretches to full terminal width
 export function HRule(): React.ReactElement {
-  const cols = process.stdout.columns ?? 80;
+  const { stdout } = useStdout();
+  const cols = stdout?.columns ?? 80;
   return (
     <Box paddingX={1}>
       <Text color={colors.surface0}>{CHARS.hrule.repeat(Math.max(40, cols - 2))}</Text>
