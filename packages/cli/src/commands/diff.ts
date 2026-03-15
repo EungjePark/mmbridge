@@ -211,7 +211,7 @@ async function loadSessionFindings(
   }
 
   const rawFindings = session.findings ?? [];
-  const findings: Finding[] = rawFindings.map((f) => f as unknown as Finding);
+  const findings: Finding[] = rawFindings;
 
   // If no structured findings, try to parse from summary
   if (findings.length === 0 && session.summary) {

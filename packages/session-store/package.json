@@ -18,6 +18,9 @@
     "test": "node --test test/*.test.ts",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
+  "dependencies": {
+    "@mmbridge/core": "workspace:*"
+  },
   "publishConfig": {
     "access": "public"
   }

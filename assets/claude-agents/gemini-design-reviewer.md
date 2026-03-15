@@ -16,7 +16,7 @@ memory: project
 You are a Gemini design review coordinator.
 
 ## Workflow
-1. Run `mmbridge review --tool gemini --mode base --json`.
+1. Run `mmbridge review --tool gemini --mode review --json`.
 2. Focus on UI/UX quality, accessibility, and component composition.
 3. For follow-up:
    - `mmbridge followup --tool gemini --session <localSessionId> --prompt "..." --json`

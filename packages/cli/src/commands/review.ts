@@ -30,6 +30,7 @@ export async function runReviewCommand(options: ReviewCommandOptions): Promise<v
     commandExists,
     createContext,
     enrichFindings,
+    orchestrateReview,
     runBridge,
   } = await importCore();
 
@@ -38,6 +39,108 @@ export async function runReviewCommand(options: ReviewCommandOptions): Promise<v
   const { renderReviewConsole } = await importTui();
 
   const tool = options.tool ?? 'kimi';
+
+  if (tool === 'all') {
+    const installedTools = await defaultRegistry.listInstalled();
+
+    if (installedTools.length === 0) {
+      exitWithError('No tools are installed. Run `mmbridge doctor` to check.');
+    }
+
+    const workspace = await createContext({
+      projectDir,
+      mode,
+      baseRef: options.baseRef,
+      commit: options.commit,
+    });
+
+    const orchResult = await orchestrateReview({
+      tools: installedTools,
+      workspace: workspace.workspace,
+      mode,
+      baseRef: options.baseRef,
+      changedFiles: workspace.changedFiles,
+      runAdapter: (tool, opts) => runReviewAdapter(tool, opts),
+    });
+
+    const bridgeProfile = options.bridge ?? 'standard';
+    const isInterpreted = bridgeProfile === 'interpreted';
+
+    const bridgeResult = await runBridge({
+      profile: isInterpreted ? 'standard' : bridgeProfile,
+      interpret: isInterpreted,
+      workspace: workspace.workspace,
+      changedFiles: workspace.changedFiles,
+      results: orchResult.results.map((r) => ({
+        tool: r.tool,
+        findings: r.findings,
+        summary: r.summary,
+        skipped: r.skipped,
+      })),
+    });
+
+    const contextIndex = buildContextIndex({
+      workspace: workspace.workspace,
+      projectDir: workspace.projectDir,
+      mode: workspace.mode,
+      baseRef: workspace.baseRef,
+      head: workspace.head,
+      changedFiles: workspace.changedFiles,
+      copiedFileCount: workspace.copiedFileCount,
+      redaction: workspace.redaction,
+    });
+
+    const resultIndex = buildResultIndex({
+      summary: bridgeResult.summary,
+      findings: bridgeResult.findings,
+      bridgeSummary: bridgeResult.summary,
+    });
+
+    const sessionStore = new SessionStore(projectDir);
+    const savedSession = await sessionStore.save({
+      tool: 'bridge',
+      mode,
+      projectDir,
+      workspace: workspace.workspace,
+      externalSessionId: null,
+      batchId: null,
+      summary: bridgeResult.summary,
+      findings: bridgeResult.findings,
+      contextIndex,
+      resultIndex,
+    });
+
+    const allReport = {
+      localSessionId: savedSession.id,
+      workspace: workspace.workspace,
+      summary: bridgeResult.summary,
+      findings: bridgeResult.findings,
+      resultIndex,
+      changedFiles: workspace.changedFiles.length,
+      copiedFiles: workspace.copiedFileCount,
+      toolResults: orchResult.results.map((r) => ({
+        tool: r.tool,
+        findingCount: r.findings.length,
+        skipped: r.skipped,
+        error: r.error,
+      })),
+      interpretation: bridgeResult.interpretation,
+    };
+
+    if (options.export) {
+      const { exportReport } = await import('./export.js');
+      await exportReport(allReport, options.export);
+    }
+
+    if (options.json) {
+      jsonOutput(allReport);
+      return;
+    }
+
+    await renderReviewConsole(allReport);
+    return;
+  }
+
   const adapter = defaultRegistry.get(tool);
   if (!adapter) {
     exitWithError(`Unknown tool: ${tool}. Available: ${defaultRegistry.list().join(', ')}`);
@@ -77,7 +180,9 @@ export async function runReviewCommand(options: ReviewCommandOptions): Promise<v
     sessionId: workspace.workspace,
   });
 
-  const enriched = enrichFindings([], workspace.changedFiles);
+  const { parseFindings } = await importCore();
+  const rawFindings = parseFindings(adapterResult.text);
+  const enriched = enrichFindings(rawFindings, workspace.changedFiles);
 
   const resultIndex = buildResultIndex({
     summary: adapterResult.text,
@@ -98,14 +203,14 @@ export async function runReviewCommand(options: ReviewCommandOptions): Promise<v
     externalSessionId: adapterResult.externalSessionId,
     batchId: null,
     summary: adapterResult.text,
-    findings: enriched.findings as unknown as Array<Record<string, unknown>>,
-    contextIndex: contextIndex as unknown as Record<string, unknown>,
-    resultIndex: resultIndex as unknown as Record<string, unknown>,
+    findings: enriched.findings,
+    contextIndex,
+    resultIndex,
   });
 
   if (options.bridge) {
     const projectContext = await buildProjectContext({ projectDir });
-    runBridge({
+    await runBridge({
       profile: options.bridge,
       projectContext,
       results: [
@@ -140,5 +245,5 @@ export async function runReviewCommand(options: ReviewCommandOptions): Promise<v
     return;
   }
 
-  await renderReviewConsole(report as unknown as Parameters<typeof renderReviewConsole>[0]);
+  await renderReviewConsole(report);
 }

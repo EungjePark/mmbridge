@@ -1,6 +1,6 @@
 {
   "name": "@mmbridge/tui",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,6 +21,9 @@
     "access": "public"
   },
   "dependencies": {
+    "@mmbridge/adapters": "workspace:*",
+    "@mmbridge/core": "workspace:*",
+    "@mmbridge/session-store": "workspace:*",
     "ink": "^5",
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^6.0.0",

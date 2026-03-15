@@ -9,6 +9,8 @@ const AGENT_FILES = [
   'codex-reviewer.md',
   'gemini-design-reviewer.md',
   'plan-reviewer.md',
+  'bridge-reviewer.md',
+  'codex-deep-reviewer.md',
 ] as const;
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -154,3 +156,5 @@ async function assertDirectoryExists(dirPath: string, errorMessage: string): Pro
 }
 
 export type { SyncOptions, SyncResult, FileEntry };
+
+export { generateHookConfig } from './hooks.js';

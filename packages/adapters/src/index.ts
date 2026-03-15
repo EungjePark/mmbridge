@@ -2,6 +2,8 @@ import { kimiAdapter } from './kimi.js';
 import { qwenAdapter } from './qwen.js';
 import { codexAdapter } from './codex.js';
 import { geminiAdapter } from './gemini.js';
+import { droidAdapter } from './droid.js';
+import { claudeAdapter } from './claude-adapter.js';
 import { AdapterRegistry } from './registry.js';
 import type { ReviewOptions, FollowupOptions, AdapterResult } from './types.js';
 
@@ -14,8 +16,21 @@ defaultRegistry.register(kimiAdapter);
 defaultRegistry.register(qwenAdapter);
 defaultRegistry.register(codexAdapter);
 defaultRegistry.register(geminiAdapter);
+defaultRegistry.register(droidAdapter);
+defaultRegistry.register(claudeAdapter);
 
 export { defaultRegistry };
+
+export async function initRegistry(): Promise<AdapterRegistry> {
+  try {
+    const { loadConfig } = await import('@mmbridge/core');
+    const config = await loadConfig(process.cwd());
+    await defaultRegistry.loadFromConfig(config);
+  } catch {
+    // Config load failure is non-critical — built-in adapters still work
+  }
+  return defaultRegistry;
+}
 
 export async function runReviewAdapter(
   tool: string,

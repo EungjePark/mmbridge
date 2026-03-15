@@ -1,5 +1,5 @@
 import { enrichFindings, sortFindings } from './report.js';
-import type { BridgeOptions, BridgeResult, Finding } from './types.js';
+import type { BridgeOptions, BridgeResult, Finding, InterpretResult } from './types.js';
 
 const DEFAULT_PROFILE = 'standard';
 
@@ -9,7 +9,7 @@ const CONSENSUS_THRESHOLD: Record<string, number> = {
   relaxed: 3,
 };
 
-export function runBridge(options: BridgeOptions = {}): BridgeResult {
+export async function runBridge(options: BridgeOptions = {}): Promise<BridgeResult> {
   const profile = options.profile ?? DEFAULT_PROFILE;
   const results = options.results ?? [];
 
@@ -24,6 +24,7 @@ export function runBridge(options: BridgeOptions = {}): BridgeResult {
       counts: {},
       findings: [],
       summary: 'No inputs to bridge.',
+      interpretation: undefined,
     };
   }
 
@@ -77,6 +78,21 @@ export function runBridge(options: BridgeOptions = {}): BridgeResult {
     .filter(Boolean)
     .join(', ');
 
+  let interpretation: InterpretResult | undefined;
+  if (options.interpret && sorted.length > 0) {
+    try {
+      const { interpretFindings } = await import('./interpret.js');
+      interpretation = await interpretFindings({
+        mergedFindings: sorted,
+        changedFiles: options.changedFiles ?? [],
+        projectContext: '',
+        workspace: options.workspace ?? '',
+      });
+    } catch {
+      // Interpretation failure is non-critical
+    }
+  }
+
   return {
     profile,
     totalInputs,
@@ -84,6 +100,7 @@ export function runBridge(options: BridgeOptions = {}): BridgeResult {
     counts,
     findings: sorted,
     summary,
+    interpretation,
   };
 }
 

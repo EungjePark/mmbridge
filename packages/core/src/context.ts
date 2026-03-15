@@ -5,9 +5,65 @@ import crypto from 'node:crypto';
 import { runCommand, ensureDir, isBinaryExtension, isPotentialSecretFile, safeRead, limitBytes, projectSlug } from './utils.js';
 import { getHead, getChangedFiles, getDiff, getDefaultBaseRef } from './git.js';
 import { redactWorkspace } from './redaction.js';
+import { ADAPTER_NAMES } from './types.js';
 import type { ContextWorkspace, CreateContextOptions } from './types.js';
 
 const DEFAULT_MAX_CONTEXT_BYTES = 2 * 1024 * 1024; // 2 MB
+
+const MODE_INSTRUCTIONS: Record<string, string> = {
+  review: [
+    'Perform a thorough code review of the changes.',
+    'Focus on: correctness, maintainability, error handling, naming, and adherence to project conventions.',
+    'Flag unused code, missing error handling, type safety issues, and potential regressions.',
+  ].join('\n'),
+  security: [
+    'Perform a security-focused audit of the changes.',
+    'Focus on: injection vulnerabilities (SQL, XSS, command), authentication/authorization gaps,',
+    'secret exposure, insecure data handling, CSRF, SSRF, and OWASP Top 10 issues.',
+    'Rate each finding as CRITICAL, WARNING, or INFO based on exploitability and impact.',
+  ].join('\n'),
+  architecture: [
+    'Perform an architectural review of the changes.',
+    'Focus on: SOLID violations, dependency direction, layer boundary crossings,',
+    'module coupling, separation of concerns, and scalability implications.',
+    'Flag over-engineering and under-abstraction equally.',
+  ].join('\n'),
+};
+
+function buildToolPrompt(tool: string, mode: string, changedFiles: string[]): string {
+  const modeInstr = MODE_INSTRUCTIONS[mode] ?? MODE_INSTRUCTIONS['review']!;
+  const fileList = changedFiles.slice(0, 30).map((f) => `- ${f}`).join('\n');
+  const truncNote = changedFiles.length > 30 ? `\n- *(${changedFiles.length} files total — showing first 30)*` : '';
+
+  return [
+    `# MMBridge ${tool} Review`,
+    '',
+    `## Mode: ${mode}`,
+    '',
+    modeInstr,
+    '',
+    '## Output Format',
+    '',
+    'For each finding, output a structured block:',
+    '```',
+    '**[SEVERITY]** file:line — message',
+    '```',
+    'Where SEVERITY is one of: CRITICAL, WARNING, INFO, REFACTOR',
+    '',
+    'End with a brief summary paragraph.',
+    '',
+    '## Changed Files',
+    '',
+    fileList + truncNote,
+    '',
+    '## Instructions',
+    '',
+    '- Review ONLY the changed files listed above.',
+    '- Reference the diff.patch and context.md in the workspace for full context.',
+    '- Do not report issues in unchanged files or review instruction text.',
+    '- Be concise — one finding per issue, no duplicates.',
+  ].join('\n');
+}
 
 export async function createContext(options: CreateContextOptions = {}): Promise<ContextWorkspace> {
   const projectDir = path.resolve(options.projectDir ?? process.cwd());
@@ -81,6 +137,20 @@ export async function createContext(options: CreateContextOptions = {}): Promise
   ].join('\n');
   await fs.writeFile(contextPath, contextContent, 'utf8');
 
+  // Generate tool-specific prompt files (parallel writes)
+  const promptDir = path.join(workspace, 'prompt');
+  await ensureDir(promptDir);
+
+  const toolNames = options.tools ?? [...ADAPTER_NAMES];
+  const promptPaths = await Promise.all(
+    toolNames.map(async (tool) => {
+      const promptContent = buildToolPrompt(tool, mode, changedFiles);
+      const promptPath = path.join(promptDir, `${tool}.md`);
+      await fs.writeFile(promptPath, promptContent, 'utf8');
+      return promptPath;
+    }),
+  );
+
   // Redact secrets from workspace
   const redaction = await redactWorkspace(workspace);
 
@@ -93,7 +163,7 @@ export async function createContext(options: CreateContextOptions = {}): Promise
     copiedFileCount,
     contextPath,
     diffPath,
-    promptPaths: [],
+    promptPaths,
     redaction,
     head,
   };

@@ -1,6 +1,7 @@
 import React from 'react';
 import { render } from 'ink';
 import { App } from './App.js';
+import type { TabId } from './store.js';
 
 // ─── Re-export domain interfaces for backward compatibility ───────────────────
 
@@ -11,8 +12,8 @@ export type {
 
 // ─── TUI entry point ──────────────────────────────────────────────────────────
 
-export function renderTui(): void {
-  render(<App />);
+export function renderTui(options?: { tab?: TabId }): void {
+  render(<App initialTab={options?.tab} />);
 }
 
 // ─── Backward-compatible stubs (replaced blessed renders) ─────────────────────

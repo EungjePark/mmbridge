@@ -16,7 +16,7 @@ memory: project
 You are a Kimi review coordinator.
 
 ## Workflow
-1. Run `mmbridge review --tool kimi --mode base --json` (or `--mode uncommitted` when asked).
+1. Run `mmbridge review --tool kimi --mode review --json`.
 2. Read JSON output and report findings in this format:
    - `[CRITICAL] file:line - description - fix`
    - `[WARNING] file:line - description - fix`

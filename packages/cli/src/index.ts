@@ -6,8 +6,9 @@ import type { DoctorOptions } from './commands/doctor.js';
 import type { SyncAgentsOptions } from './commands/sync-agents.js';
 import type { InitCommandOptions } from './commands/init.js';
 import type { DiffCommandOptions } from './commands/diff.js';
+import type { HookCommandOptions } from './commands/hook.js';
 
-export type { ReviewCommandOptions, FollowupCommandOptions, DoctorOptions, SyncAgentsOptions, InitCommandOptions, DiffCommandOptions };
+export type { ReviewCommandOptions, FollowupCommandOptions, DoctorOptions, SyncAgentsOptions, InitCommandOptions, DiffCommandOptions, HookCommandOptions };
 
 export async function main(): Promise<void> {
   const program = new Command();
@@ -25,7 +26,7 @@ export async function main(): Promise<void> {
   program
     .command('review')
     .description('Run a code review with the specified AI tool')
-    .option('-t, --tool <tool>', 'AI tool to use (kimi|qwen|codex|gemini)', 'kimi')
+    .option('-t, --tool <tool>', 'AI tool to use (kimi|qwen|codex|gemini|droid|claude|all)', 'kimi')
     .option('-m, --mode <mode>', 'Review mode (review|security|architecture)', 'review')
     .option('--bridge <profile>', 'Bridge aggregation profile')
     .option('--base-ref <ref>', 'Git base ref for diff (default: HEAD~1)')
@@ -104,9 +105,9 @@ export async function main(): Promise<void> {
     .command('tui')
     .description('Open the interactive TUI hub')
     .option('--tab <tab>', 'Open directly to a tab (review|config|sessions|diff)')
-    .action(async () => {
+    .action(async (opts: { tab?: string }) => {
       const { renderTui } = await import('@mmbridge/tui');
-      await renderTui();
+      await renderTui({ tab: opts.tab as 'status' | 'review' | 'sessions' | 'config' });
     });
 
   // ── diff ──
@@ -120,6 +121,29 @@ export async function main(): Promise<void> {
     .action(async (opts: DiffCommandOptions) => {
       const { runDiffCommand } = await import('./commands/diff.js');
       await runDiffCommand(opts);
+    });
+
+  // ── hook ──
+  const hookCmd = program.command('hook').description('Manage Claude Code hooks');
+
+  hookCmd
+    .command('install')
+    .description('Install mmbridge hooks into Claude Code settings')
+    .option('--global', 'Install to global ~/.claude/settings.json')
+    .option('--json', 'Output JSON')
+    .action(async (opts: { global?: boolean; json?: boolean }) => {
+      const { runHookInstallCommand } = await import('./commands/hook.js');
+      await runHookInstallCommand(opts);
+    });
+
+  hookCmd
+    .command('uninstall')
+    .description('Remove mmbridge hooks from Claude Code settings')
+    .option('--global', 'Remove from global ~/.claude/settings.json')
+    .option('--json', 'Output JSON')
+    .action(async (opts: { global?: boolean; json?: boolean }) => {
+      const { runHookUninstallCommand } = await import('./commands/hook.js');
+      await runHookUninstallCommand(opts);
     });
 
   await program.parseAsync(process.argv);

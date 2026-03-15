@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
-import { colors } from '../theme.js';
+import { colors, statusColor } from '../theme.js';
 import { HRule } from './Header.js';
+import type { TabId } from '../store.js';
 
 interface ToastInfo {
   message: string;
@@ -11,21 +12,19 @@ interface ToastInfo {
 
 interface StatusBarProps {
   toast?: ToastInfo | null;
-  hints?: string;
+  activeTab: TabId;
 }
 
-const DEFAULT_HINTS = '\u21B9 Navigate \u2502 \u23CE Select \u2502 1-4 Tabs \u2502 ? Help \u2502 q Quit';
+const TAB_HINTS: Record<TabId, string> = {
+  status:   'r Review │ Enter Details │ 1-4 Tabs │ ? Help │ q Quit',
+  review:   'Enter Start │ h/l Column │ j/k Select │ n New │ ? Help │ q Quit',
+  sessions: 'j/k Navigate │ Enter Findings │ f Followup │ e Export │ q Quit',
+  config:   'j/k Select │ Enter Test │ Tab Section │ ? Help │ q Quit',
+};
+
 const TOAST_DURATION_MS = 3000;
 
-function toastColor(type: ToastInfo['type']): string {
-  switch (type) {
-    case 'success': return colors.green;
-    case 'error':   return colors.red;
-    case 'info':    return colors.cyan;
-  }
-}
-
-export function StatusBar({ toast, hints = DEFAULT_HINTS }: StatusBarProps): React.ReactElement {
+export function StatusBar({ toast, activeTab }: StatusBarProps): React.ReactElement {
   const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
@@ -44,14 +43,16 @@ export function StatusBar({ toast, hints = DEFAULT_HINTS }: StatusBarProps): Rea
     return () => clearTimeout(timer);
   }, [toast]);
 
+  const hints = TAB_HINTS[activeTab];
+
   return (
     <Box flexDirection="column">
       <HRule />
       <Box paddingX={1} paddingY={0}>
         {showToast && toast ? (
-          <Text color={toastColor(toast.type)} bold>{toast.message}</Text>
+          <Text color={statusColor(toast.type)} bold>{toast.message}</Text>
         ) : (
-          <Text color={colors.textMuted}>{hints}</Text>
+          <Text color={colors.overlay1}>{hints}</Text>
         )}
       </Box>
     </Box>

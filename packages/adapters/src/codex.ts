@@ -1,6 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { parseCodexAgentMessages } from '@mmbridge/core';
 import { ensureBinary, invoke, parseExternalSessionId, isPathContained, assertCliSuccess } from './utils.js';
 import type { AdapterDefinition, AdapterResult } from './types.js';
 
@@ -151,35 +152,8 @@ async function readCodexLastMessage(outputPath: string, fallbackRaw: string): Pr
 }
 
 function extractTextFromCodexExec(raw: string): string {
-  const lines = String(raw ?? '').split('\n');
-  const agentMessages: string[] = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith('{')) continue;
-    try {
-      const parsed: unknown = JSON.parse(trimmed);
-      if (
-        parsed !== null &&
-        typeof parsed === 'object' &&
-        'type' in parsed &&
-        'item' in parsed
-      ) {
-        const record = parsed as Record<string, unknown>;
-        const item = record.item as Record<string, unknown> | undefined;
-        if (
-          record.type === 'item.completed' &&
-          item?.type === 'agent_message' &&
-          typeof item.text === 'string'
-        ) {
-          agentMessages.push(item.text);
-        }
-      }
-    } catch {
-      /* ignore non-json logs */
-    }
-  }
-  if (agentMessages.length > 0) return agentMessages[agentMessages.length - 1];
-  return String(raw ?? '');
+  const messages = parseCodexAgentMessages(String(raw ?? ''));
+  return messages.at(-1) ?? String(raw ?? '');
 }
 
 function createCodexOutputPath(workspace: string, kind: string): string {

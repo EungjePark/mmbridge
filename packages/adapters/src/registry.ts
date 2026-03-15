@@ -24,6 +24,17 @@ export class AdapterRegistry {
     return [...this.adapters.values()];
   }
 
+  async listInstalled(): Promise<string[]> {
+    const { commandExists } = await import('@mmbridge/core');
+    const results = await Promise.all(
+      this.values().map(async (a) => ({
+        name: a.name,
+        installed: await commandExists(a.binary).catch(() => false),
+      })),
+    );
+    return results.filter((r) => r.installed).map((r) => r.name);
+  }
+
   async loadFromConfig(config: MmbridgeConfig): Promise<void> {
     const adapterConfigs = config.adapters ?? {};
     for (const [name, cfg] of Object.entries(adapterConfigs)) {

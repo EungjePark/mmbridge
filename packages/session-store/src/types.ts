@@ -1,3 +1,5 @@
+import type { Finding, ContextIndex, ResultIndex } from '@mmbridge/core';
+
 export interface Session {
   id: string;
   tool: string;
@@ -14,9 +16,9 @@ export interface Session {
   head?: { sha: string; branch: string };
   rawOutput?: string;
   summary?: string;
-  findings?: Array<Record<string, unknown>>;
-  contextIndex?: Record<string, unknown> | null;
-  resultIndex?: Record<string, unknown> | null;
+  findings?: Finding[];
+  contextIndex?: ContextIndex | null;
+  resultIndex?: ResultIndex | null;
   followupSupported?: boolean;
   status?: string;
 }

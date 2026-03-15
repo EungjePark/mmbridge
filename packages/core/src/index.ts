@@ -1,4 +1,6 @@
+export { ADAPTER_NAMES } from './types.js';
 export type {
+  AdapterName,
   Severity,
   Finding,
   HeadMeta,
@@ -16,6 +18,7 @@ export type {
   ResultIndex,
   BridgeResult,
   BridgeOptions,
+  InterpretResult,
   EnrichResult,
   BuildContextIndexInput,
   BuildResultIndexInput,
@@ -35,6 +38,7 @@ export {
   safeRead,
   limitBytes,
   nowIso,
+  parseCodexAgentMessages,
 } from './utils.js';
 
 export {
@@ -69,6 +73,14 @@ export { createContext, cleanupContext } from './context.js';
 export { runBridge, mergeBridgeFindings } from './bridge.js';
 
 export { parseFindings, detectParseState } from './finding-parser.js';
+
+export { orchestrateReview } from './orchestrate.js';
+export type { OrchestrateOptions, OrchestrateResult, ToolResult } from './orchestrate.js';
+
+export { interpretFindings } from './interpret.js';
+
+export { exportReport } from './export.js';
+export type { ExportableReport } from './export.js';
 
 export {
   loadConfig,

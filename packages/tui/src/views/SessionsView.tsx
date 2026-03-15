@@ -1,238 +1,316 @@
-import React, { useState } from 'react';
-import { Box, Text } from 'ink';
-import { colors, toolColor, severityColor } from '../theme.js';
-import { HRule } from '../components/Header.js';
+import React, { useCallback, useMemo } from 'react';
+import { Box, Text, useInput } from 'ink';
+import type { Session } from '@mmbridge/session-store';
+import { colors, toolColor, severityColor, severityIcon, CHARS } from '../theme.js';
+import { Panel } from '../components/Panel.js';
+import { PromptInput } from '../components/PromptInput.js';
+import { Sparkline } from '../components/Sparkline.js';
+import { SeverityBar } from '../components/SeverityBar.js';
+import { KVRow } from '../components/KVRow.js';
+import { useTui } from '../store.js';
+import { sessionToFindings } from '../hooks/use-data.js';
+import {
+  buildAncestryChain,
+  computeSessionStats,
+  parseContextIndex,
+  parseResultIndex,
+} from '../hooks/session-analytics.js';
+import { formatRelativeTime, formatCompactDate, countBySeverity } from '../utils/format.js';
+import { useExportReport } from '../hooks/use-export.js';
+import { useFollowup } from '../hooks/use-followup.js';
 
-interface Finding {
-  severity: string;
-  file: string;
-  line: number | null;
-  message: string;
-}
+// ─── SessionRow ───────────────────────────────────────────────────────────────
 
-interface SessionItem {
-  id: string;
-  tool: string;
-  mode: string;
-  date: string;
-  findingCount: number;
-  summary: string;
-  findings: Finding[];
-}
-
-const MOCK_SESSIONS: SessionItem[] = [
-  {
-    id: 'abc-123',
-    tool: 'kimi',
-    mode: 'security',
-    date: '2026-03-14 15:30',
-    findingCount: 5,
-    summary: '5 findings across 4 files. Unsafe input handling in API layer.',
-    findings: [
-      { severity: 'CRITICAL', file: 'src/api.ts',    line: 42,   message: 'Unsafe parse — no try/catch' },
-      { severity: 'WARNING',  file: 'src/utils.ts',  line: 18,   message: 'Unvalidated user input passed downstream' },
-      { severity: 'WARNING',  file: 'src/config.ts', line: 7,    message: 'Hardcoded secret in config' },
-      { severity: 'INFO',     file: 'src/types.ts',  line: 3,    message: 'Consider using branded types' },
-      { severity: 'REFACTOR', file: 'src/old.ts',    line: 99,   message: 'Dead code path' },
-    ],
-  },
-  {
-    id: 'def-456',
-    tool: 'qwen',
-    mode: 'review',
-    date: '2026-03-13 10:12',
-    findingCount: 2,
-    summary: '2 findings. Minor naming issues and unused export.',
-    findings: [
-      { severity: 'INFO',     file: 'src/db.ts',      line: 55,   message: 'Function name does not follow convention' },
-      { severity: 'REFACTOR', file: 'src/helpers.ts', line: null, message: 'Unused export' },
-    ],
-  },
-  {
-    id: 'ghi-789',
-    tool: 'codex',
-    mode: 'review',
-    date: '2026-03-12 08:44',
-    findingCount: 3,
-    summary: '3 findings. Error handling gaps in async flows.',
-    findings: [
-      { severity: 'WARNING', file: 'src/fetch.ts', line: 23, message: 'Unhandled promise rejection' },
-      { severity: 'WARNING', file: 'src/fetch.ts', line: 31, message: 'Missing timeout on fetch call' },
-      { severity: 'INFO',    file: 'src/cache.ts', line: 10, message: 'Cache TTL is hardcoded' },
-    ],
-  },
-];
-
-const ALL_TOOLS = ['all', 'kimi', 'qwen', 'codex', 'gemini'];
-const ALL_MODES = ['all', 'review', 'security', 'followup'];
-
-function FilterRow({ label, options, selected, onSelect }: {
-  label: string;
-  options: string[];
-  selected: string;
-  onSelect: (v: string) => void;
-}): React.ReactElement {
-  return (
-    <Box flexDirection="column" marginBottom={1}>
-      <Text color={colors.textMuted}>{label}</Text>
-      <Box flexDirection="column">
-        {options.map((opt) => (
-          <Box key={opt} flexDirection="row" paddingLeft={2}>
-            <Text color={opt === selected ? colors.green : colors.textMuted}>
-              {opt === selected ? '\u25CF' : '\u25CB'}{' '}
-            </Text>
-            <Text color={opt === selected ? colors.text : colors.textMuted}>{opt}</Text>
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  );
-}
-
-function SessionRow({ session, isSelected }: {
-  session: SessionItem;
+interface SessionRowProps {
+  session: Session;
   isSelected: boolean;
-}): React.ReactElement {
-  const dateShort = session.date.slice(5, 10); // MM-DD
-  const timeShort = session.date.slice(11, 16); // HH:MM
-  const findLabel = `${session.findingCount} finding${session.findingCount !== 1 ? 's' : ''}`;
+  isFollowup: boolean;
+}
+
+function SessionRow({ session, isSelected, isFollowup }: SessionRowProps): React.ReactElement {
+  const findingCount = (session.findings ?? []).length;
+  const prefix = isSelected
+    ? CHARS.selected + ' '
+    : isFollowup
+    ? CHARS.followup + ' '
+    : '  ';
+  const prefixColor = isSelected ? colors.green : isFollowup ? colors.accent : colors.overlay0;
+
   return (
-    <Box flexDirection="row" paddingLeft={1} marginBottom={0}>
-      <Text color={isSelected ? colors.green : colors.textMuted}>
-        {isSelected ? '\u25CF' : ' '}{' '}
+    <Box flexDirection="row">
+      <Text color={prefixColor}>{prefix}</Text>
+      <Text color={isSelected ? colors.text : colors.overlay1}>
+        {formatCompactDate(session.createdAt)}
       </Text>
-      <Text color={isSelected ? colors.text : colors.textMuted}>
-        {`${dateShort} ${timeShort}  `}
+      <Text>{' '}</Text>
+      <Text color={toolColor(session.tool)}>{session.tool.padEnd(7)}</Text>
+      <Text color={isSelected ? colors.subtext0 : colors.overlay0}>{session.mode.padEnd(10)}</Text>
+      <Text color={findingCount > 0 ? colors.yellow : colors.textDim}>
+        {String(findingCount)}
       </Text>
-      <Text color={toolColor(session.tool)}>{session.tool.padEnd(6)}</Text>
-      <Text color={colors.textMuted}>{session.mode.padEnd(9)}</Text>
-      <Text color={session.findingCount > 0 ? colors.yellow : colors.textMuted}>{findLabel}</Text>
     </Box>
   );
 }
 
-function FindingRow({ finding }: { finding: Finding }): React.ReactElement {
-  const loc = finding.line !== null
-    ? `${finding.file}:${finding.line}`
-    : finding.file;
-  return (
-    <Box flexDirection="row" paddingLeft={2} marginBottom={0}>
-      <Text bold color={severityColor(finding.severity)}>
-        {finding.severity.padEnd(10)}
-      </Text>
-      <Text color={colors.textMuted}>{loc}</Text>
-      <Text color={colors.textDim}>{' \u2014 '}</Text>
-      <Text color={colors.text}>{finding.message}</Text>
-    </Box>
-  );
+// ─── DetailPanel ──────────────────────────────────────────────────────────────
+
+interface DetailPanelProps {
+  session: Session;
+  allSessions: Session[];
 }
 
-function SessionDetail({ session }: { session: SessionItem }): React.ReactElement {
-  return (
-    <Box flexDirection="column" paddingLeft={1}>
-      <Box flexDirection="row" justifyContent="space-between">
-        <Text color={toolColor(session.tool)} bold>Session: {session.id}</Text>
-        <Text color={colors.textMuted}>{session.date}</Text>
-      </Box>
-      <Box flexDirection="column" paddingLeft={2} marginTop={1}>
-        <Box flexDirection="row">
-          <Text color={colors.textMuted}>{'Tool       '}</Text>
-          <Text color={toolColor(session.tool)}>{session.tool}</Text>
-        </Box>
-        <Box flexDirection="row">
-          <Text color={colors.textMuted}>{'Mode       '}</Text>
-          <Text color={colors.text}>{session.mode}</Text>
-        </Box>
-        <Box flexDirection="row">
-          <Text color={colors.textMuted}>{'Files      '}</Text>
-          <Text color={colors.text}>{session.findingCount} changed</Text>
-        </Box>
-        <Box flexDirection="row">
-          <Text color={colors.textMuted}>{'Base       '}</Text>
-          <Text color={colors.text}>origin/main</Text>
-        </Box>
-      </Box>
-      <Box marginTop={1} flexDirection="column">
-        <Box paddingLeft={2}>
-          <Text color={colors.textMuted}>
-            Findings ({session.findings.length})
-          </Text>
-        </Box>
-        <Box flexDirection="column" marginTop={0}>
-          {session.findings.map((f, i) => <FindingRow key={i} finding={f} />)}
-        </Box>
-      </Box>
-    </Box>
-  );
-}
+function DetailPanel({ session, allSessions }: DetailPanelProps): React.ReactElement {
+  const findings = sessionToFindings(session);
+  const sevCounts = countBySeverity(findings);
+  const contextIndex = parseContextIndex(session.contextIndex);
+  const resultIndex = parseResultIndex(session.resultIndex);
+  const ancestryChain = buildAncestryChain(allSessions, session.id);
 
-export function SessionsView(): React.ReactElement {
-  const [toolFilter, setToolFilter] = useState('all');
-  const [modeFilter, setModeFilter] = useState('all');
-  const [selectedId, setSelectedId] = useState<string>(MOCK_SESSIONS[0]?.id ?? '');
+  const shortId = session.id.slice(0, 8);
 
-  const filtered = MOCK_SESSIONS.filter((s) => {
-    const toolMatch = toolFilter === 'all' || s.tool === toolFilter;
-    const modeMatch = modeFilter === 'all' || s.mode === modeFilter;
-    return toolMatch && modeMatch;
-  });
+  // Category breakdown from contextIndex
+  const categories = contextIndex?.categoryCounts
+    ? Object.entries(contextIndex.categoryCounts)
+        .filter(([, count]) => count > 0)
+        .sort(([, a], [, b]) => b - a)
+    : null;
 
-  const selected = filtered.find((s) => s.id === selectedId) ?? filtered[0] ?? null;
-
-  React.useEffect(() => {
-    if (filtered.length > 0 && !filtered.find((s) => s.id === selectedId)) {
-      setSelectedId(filtered[0]!.id);
-    }
-  }, [toolFilter, modeFilter, filtered, selectedId]);
+  // Top files from resultIndex
+  const topFiles = resultIndex?.topFiles?.slice(0, 3) ?? null;
 
   return (
-    <Box flexDirection="row" width="100%">
-      {/* Sidebar */}
-      <Box flexDirection="column" width={26} paddingX={1} paddingY={1}>
-        <FilterRow
-          label="TOOL"
-          options={ALL_TOOLS}
-          selected={toolFilter}
-          onSelect={setToolFilter}
-        />
-        <FilterRow
-          label="MODE"
-          options={ALL_MODES}
-          selected={modeFilter}
-          onSelect={setModeFilter}
-        />
-        <Box marginTop={1} flexDirection="column">
-          <Text color={colors.textMuted}>HISTORY</Text>
-          <Box flexDirection="column" marginTop={0}>
-            {filtered.length === 0 && (
-              <Box paddingLeft={2}>
-                <Text color={colors.textDim}>No sessions</Text>
-              </Box>
-            )}
-            {filtered.map((s) => (
-              <SessionRow
-                key={s.id}
-                session={s}
-                isSelected={s.id === (selected?.id ?? '')}
-              />
-            ))}
-          </Box>
-        </Box>
+    <Box flexDirection="column" gap={1}>
+      {/* Header: ID + tool / mode */}
+      <Box flexDirection="row" gap={1}>
+        <Text color={colors.textDim}>#{shortId}</Text>
+        <Text color={toolColor(session.tool)} bold>{session.tool}</Text>
+        <Text color={colors.textDim}>/</Text>
+        <Text color={colors.subtext1}>{session.mode}</Text>
       </Box>
 
-      {/* Main panel */}
-      <Box flexDirection="column" flexGrow={1} paddingY={1}>
-        {selected === null ? (
-          <Box paddingLeft={1}>
-            <Text color={colors.textMuted}>No session selected.</Text>
-          </Box>
-        ) : (
+      {/* Time | files | findings */}
+      <Box flexDirection="row" gap={0}>
+        <Text color={colors.overlay1}>{formatRelativeTime(session.createdAt)}</Text>
+        {resultIndex != null && (
           <>
-            <SessionDetail session={selected} />
-            <HRule />
+            <Text color={colors.textDim}>{' │ '}</Text>
+            <Text color={colors.subtext0}>{resultIndex.filesTouched} files</Text>
+            <Text color={colors.textDim}>{' │ '}</Text>
+            <Text color={findings.length > 0 ? colors.yellow : colors.textDim}>
+              {findings.length} finds
+            </Text>
+          </>
+        )}
+        {resultIndex == null && (
+          <>
+            <Text color={colors.textDim}>{' │ '}</Text>
+            <Text color={findings.length > 0 ? colors.yellow : colors.textDim}>
+              {findings.length} finds
+            </Text>
           </>
         )}
       </Box>
+
+      {/* Severity bar */}
+      <SeverityBar counts={sevCounts} />
+
+      {/* Category breakdown */}
+      {categories != null && categories.length > 0 && (
+        <Box flexDirection="column">
+          <Text color={colors.textDim} bold>Files</Text>
+          <Box flexDirection="row" flexWrap="wrap" gap={1}>
+            {categories.slice(0, 4).map(([cat, count]) => (
+              <Text key={cat} color={colors.subtext0}>
+                {cat}({count})
+              </Text>
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {/* Top files */}
+      {topFiles != null && topFiles.length > 0 && (
+        <Box flexDirection="column">
+          <Text color={colors.textDim} bold>Top</Text>
+          <Box flexDirection="row" flexWrap="wrap" gap={1}>
+            {topFiles.map((f) => (
+              <Text key={f.file} color={colors.overlay2}>
+                {f.file.split('/').pop()}({f.count})
+              </Text>
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {/* Ancestry chain */}
+      {ancestryChain.length > 1 && (
+        <Box flexDirection="row" flexWrap="wrap" gap={0}>
+          <Text color={colors.textDim} bold>Chain </Text>
+          {ancestryChain.map((id, idx) => {
+            const isCurrent = id === session.id;
+            const label = id.slice(0, 6);
+            return (
+              <React.Fragment key={id}>
+                {idx > 0 && <Text color={colors.textDim}>{' → '}</Text>}
+                <Text color={isCurrent ? colors.accent : colors.overlay1} bold={isCurrent}>
+                  #{label}{isCurrent ? ' (cur)' : ''}
+                </Text>
+              </React.Fragment>
+            );
+          })}
+        </Box>
+      )}
+
+      {/* Base ref */}
+      {session.baseRef != null && (
+        <KVRow label="Base" value={session.baseRef} labelWidth={6} />
+      )}
+
+      {/* Status */}
+      <KVRow
+        label="Status"
+        value={session.status ?? 'complete'}
+        labelWidth={6}
+        valueColor={session.status === 'error' ? colors.red : colors.green}
+      />
+    </Box>
+  );
+}
+
+const PAGE_SIZE = 14;
+
+// ─── SessionsView ─────────────────────────────────────────────────────────────
+
+export function SessionsView(): React.ReactElement {
+  const [state, dispatch] = useTui();
+  const { sessions, sessionsLoading, sessionsUi } = state;
+
+  const selectedIndex = sessionsUi.selectedIndex;
+  const clampedIndex = Math.min(selectedIndex, Math.max(0, sessions.length - 1));
+  const selected: Session | null = sessions[clampedIndex] ?? null;
+
+  // Activity sparkline: computed from sessions
+  const stats = useMemo(() => computeSessionStats(sessions), [sessions]);
+  const sparkData = useMemo(
+    () => [...stats.dailyCounts].reverse(),
+    [stats],
+  );
+
+  const doExport = useExportReport(dispatch);
+  const { submit: submitFollowup, cancel: cancelFollowup } = useFollowup(dispatch);
+
+  const handleSessionExport = useCallback((session: Session) => {
+    doExport({
+      localSessionId: session.id,
+      summary: session.summary ?? '',
+      findings: sessionToFindings(session),
+    }, session.id.slice(0, 8));
+  }, [doExport]);
+
+  useInput((input, key) => {
+    if (sessions.length === 0) return;
+
+    if (input === 'j' || key.downArrow) {
+      dispatch({ type: 'SESSIONS_SELECT', index: Math.min(sessions.length - 1, clampedIndex + 1) });
+    }
+    if (input === 'k' || key.upArrow) {
+      dispatch({ type: 'SESSIONS_SELECT', index: Math.max(0, clampedIndex - 1) });
+    }
+    if (input === 'f') {
+      if (!selected) return;
+      if (!selected.externalSessionId) {
+        dispatch({ type: 'SHOW_TOAST', message: 'No session ID for followup', toastType: 'error' });
+        return;
+      }
+      dispatch({ type: 'START_FOLLOWUP', tool: selected.tool, sessionId: selected.externalSessionId });
+    }
+    if (input === 'e') {
+      if (!selected) return;
+      handleSessionExport(selected);
+    }
+  });
+
+  if (sessionsLoading) {
+    return (
+      <Box paddingX={2} paddingY={1}>
+        <Text color={colors.textMuted}>Loading sessions...</Text>
+      </Box>
+    );
+  }
+
+  if (sessions.length === 0) {
+    return (
+      <Box paddingX={2} paddingY={1}>
+        <Text color={colors.textDim}>No sessions yet. Run a review first.</Text>
+      </Box>
+    );
+  }
+
+  const visibleSessions = sessions.slice(0, PAGE_SIZE);
+
+  return (
+    <Box flexDirection="column" width="100%" paddingY={1}>
+      {/* Main row: list + detail */}
+      <Box flexDirection="row" width="100%" gap={1}>
+        {/* Left: Sessions list panel (~40%) */}
+        <Panel title="SESSIONS" width={42}>
+          {/* Activity sparkline */}
+          <Box flexDirection="row" gap={1} marginTop={1} marginBottom={1}>
+            <Text color={colors.textDim}>Activity:</Text>
+            <Sparkline data={sparkData} color={colors.accent} width={8} />
+            <Text color={colors.textDim}>{sessions.length} total</Text>
+          </Box>
+
+          {/* Session rows */}
+          <Box flexDirection="column">
+            {visibleSessions.map((s, i) => {
+              const isFollowup = s.externalSessionId != null || s.parentSessionId != null;
+              return (
+                <SessionRow
+                  key={s.id}
+                  session={s}
+                  isSelected={i === clampedIndex}
+                  isFollowup={isFollowup}
+                />
+              );
+            })}
+          </Box>
+
+          {/* Footer */}
+          <Box marginTop={1}>
+            <Text color={colors.textDim}>
+              Showing {visibleSessions.length} of {sessions.length}
+            </Text>
+          </Box>
+        </Panel>
+
+        {/* Right: Detail panel (~60%) */}
+        <Panel title="DETAIL" flexGrow={1} borderColor={colors.surface1}>
+          {selected != null ? (
+            <Box marginTop={1}>
+              <DetailPanel session={selected} allSessions={sessions} />
+            </Box>
+          ) : (
+            <Text color={colors.textDim}>No session selected.</Text>
+          )}
+        </Panel>
+      </Box>
+
+      {/* Key hints */}
+      <Box marginTop={1} paddingX={1}>
+        <Text color={colors.overlay0}>
+          {' j/k Navigate │ Enter View Findings │ f Followup │ e Export'}
+        </Text>
+      </Box>
+
+      {/* Followup input */}
+      {state.inputMode === 'followup' && state.inputTarget && (
+        <PromptInput
+          label={`Followup (${state.inputTarget.tool})`}
+          onSubmit={(prompt) => submitFollowup(state.inputTarget!.tool, state.inputTarget!.sessionId, prompt)}
+          onCancel={cancelFollowup}
+        />
+      )}
     </Box>
   );
 }

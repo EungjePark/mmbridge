@@ -1,5 +1,9 @@
 export type Severity = 'CRITICAL' | 'WARNING' | 'INFO' | 'REFACTOR';
 
+/** Canonical tool list — single source of truth across all packages */
+export const ADAPTER_NAMES = ['kimi', 'qwen', 'codex', 'gemini', 'droid', 'claude'] as const;
+export type AdapterName = (typeof ADAPTER_NAMES)[number];
+
 export interface Finding {
   severity: Severity;
   file: string;
@@ -52,6 +56,7 @@ export interface CreateContextOptions {
   baseRef?: string;
   commit?: string;
   maxContextBytes?: number;
+  tools?: string[];
 }
 
 export interface RedactionResult {
@@ -125,6 +130,14 @@ export interface ResultIndex {
   bridgeSummary: string | null;
 }
 
+export interface InterpretResult {
+  validated: Finding[];
+  falsePositives: Array<{ finding: Finding; reason: string }>;
+  promoted: Finding[];
+  actionPlan: string;
+  interpreterTool: string;
+}
+
 export interface BridgeResult {
   profile: string;
   totalInputs: number;
@@ -132,11 +145,15 @@ export interface BridgeResult {
   counts: Record<string, number>;
   findings: Finding[];
   summary: string;
+  interpretation?: InterpretResult;
 }
 
 export interface BridgeOptions {
   profile?: string;
   projectContext?: Partial<ProjectContext>;
+  interpret?: boolean;
+  workspace?: string;
+  changedFiles?: string[];
   results?: Array<{
     tool: string;
     findings?: Finding[];

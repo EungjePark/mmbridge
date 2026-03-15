@@ -1,226 +1,218 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { colors, toolColor } from '../theme.js';
-import { HRule } from '../components/Header.js';
+import Spinner from 'ink-spinner';
+import { commandExists, loadConfig, resolveClassifiers, DEFAULT_CLASSIFIERS } from '@mmbridge/core';
+import type { MmbridgeConfig } from '@mmbridge/core';
+import { defaultRegistry } from '@mmbridge/adapters';
+import { colors, toolColor, ADAPTER_NAMES, CHARS } from '../theme.js';
+import { Panel } from '../components/Panel.js';
+import { KVRow } from '../components/KVRow.js';
+import { useTui } from '../store.js';
 
-const ADAPTERS = ['kimi', 'qwen', 'codex', 'gemini'] as const;
-const SETTINGS = ['classifiers', 'redaction', 'context', 'bridge'] as const;
-
-type Adapter = typeof ADAPTERS[number];
-type Setting = typeof SETTINGS[number];
-
-interface AdapterInfo {
-  binary: string;
-  installed: boolean;
-  latency: string | null;
-}
-
-const ADAPTER_INFO: Record<Adapter, AdapterInfo> = {
-  kimi:   { binary: 'kimi',      installed: true,  latency: '1.2s' },
-  qwen:   { binary: 'qwen',      installed: true,  latency: '3.4s' },
-  codex:  { binary: 'codex',     installed: false, latency: null },
-  gemini: { binary: 'opencode',  installed: true,  latency: '0.8s' },
-};
-
-const SETTINGS_VALUES: Record<Setting, Array<{ label: string; value: string }>> = {
-  classifiers: [
-    { label: 'Severity levels', value: 'critical, warning, info, refactor' },
-    { label: 'Custom patterns', value: '(none)' },
-  ],
-  redaction: [
-    { label: 'Redact tokens',   value: 'enabled' },
-    { label: 'Redact PII',      value: 'enabled' },
-    { label: 'Custom rules',    value: '(none)' },
-  ],
-  context: [
-    { label: 'Max files',       value: '200' },
-    { label: 'Context window',  value: '128k' },
-    { label: 'Include tests',   value: 'true' },
-  ],
-  bridge: [
-    { label: 'Workspace dir',   value: '/tmp/mmctx-*' },
-    { label: 'Auth model',      value: 'claude-sonnet' },
-    { label: 'Timeout',         value: '120s' },
-  ],
-};
-
-type SelectionState =
-  | { section: 'adapters'; index: number }
-  | { section: 'settings'; index: number };
-
-function KVRow({ label, value, valueColor }: {
-  label: string;
-  value: string;
-  valueColor?: string;
-}): React.ReactElement {
-  return (
-    <Box flexDirection="row">
-      <Text color={colors.textMuted}>{label.padEnd(16)}</Text>
-      <Text color={valueColor ?? colors.text}>{value}</Text>
-    </Box>
-  );
-}
-
-function AdapterCard({ adapter, isSelected, testing }: {
-  adapter: Adapter;
-  isSelected: boolean;
-  testing: boolean;
-}): React.ReactElement {
-  const info = ADAPTER_INFO[adapter];
-  const installStatus = info.installed ? '\u2713 installed' : '\u2717 missing';
-  const installColor = info.installed ? colors.green : colors.red;
-  const statusValue = info.installed
-    ? (info.latency != null ? `Connected (${info.latency})` : 'Connected')
-    : 'Not installed';
-
-  return (
-    <Box flexDirection="column" marginBottom={1} paddingLeft={1}>
-      <Box flexDirection="row" justifyContent="space-between">
-        <Text color={toolColor(adapter)} bold>{adapter}</Text>
-        <Text color={installColor}>{installStatus}</Text>
-      </Box>
-      <Box flexDirection="column" paddingLeft={2} marginTop={0}>
-        <KVRow label="Binary" value={info.binary} />
-        <KVRow label="Status" value={statusValue} valueColor={info.installed ? colors.green : colors.red} />
-        <KVRow label="Args" value="(default)" />
-      </Box>
-      {isSelected && (
-        <Box paddingLeft={2} marginTop={1}>
-          {testing ? (
-            <Text color={colors.yellow}>Testing connection...</Text>
-          ) : (
-            <Text bold color={colors.green}>[ \u23CE TEST CONNECTION ]</Text>
-          )}
-        </Box>
-      )}
-    </Box>
-  );
-}
-
-function SettingsPanel({ setting }: { setting: Setting }): React.ReactElement {
-  const fields = SETTINGS_VALUES[setting];
-  return (
-    <Box flexDirection="column" paddingLeft={1}>
-      <Text color={colors.textMuted}>SETTINGS \u00B7 {setting}</Text>
-      <Box flexDirection="column" paddingLeft={2} marginTop={1}>
-        {fields.map((f) => (
-          <KVRow key={f.label} label={f.label} value={f.value} />
-        ))}
-      </Box>
-    </Box>
-  );
-}
+const SETTINGS_ITEMS = ['classifiers', 'redaction', 'context', 'bridge'] as const;
+type SettingsItem = (typeof SETTINGS_ITEMS)[number];
 
 export function ConfigView(): React.ReactElement {
-  const [selection, setSelection] = useState<SelectionState>({
-    section: 'adapters',
-    index: 0,
-  });
+  const [state, dispatch] = useTui();
+  const { config, adapters } = state;
+
   const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const [configData, setConfigData] = useState<MmbridgeConfig | null>(null);
+  const [classifierCount, setClassifierCount] = useState(DEFAULT_CLASSIFIERS.length);
 
-  const currentAdapter: Adapter =
-    selection.section === 'adapters'
-      ? (ADAPTERS[selection.index] ?? 'kimi')
-      : 'kimi';
+  useEffect(() => {
+    const load = async (): Promise<void> => {
+      try {
+        const cfg = await loadConfig(process.cwd());
+        setConfigData(cfg);
+        const rules = resolveClassifiers(cfg);
+        setClassifierCount(rules.length);
+      } catch {
+        setConfigData(null);
+      }
+    };
+    load();
+  }, []);
 
-  const currentSetting: Setting =
-    selection.section === 'settings'
-      ? (SETTINGS[selection.index] ?? 'classifiers')
+  const selectedAdapter = ADAPTER_NAMES[config.selectedSection === 'adapters' ? config.selectedIndex : 0] ?? 'kimi';
+
+  const selectedSetting: SettingsItem =
+    config.selectedSection === 'settings'
+      ? (SETTINGS_ITEMS[config.selectedIndex] ?? 'classifiers')
       : 'classifiers';
 
-  const handleTest = (): void => {
+  const handleTest = async (): Promise<void> => {
     if (testing) return;
     setTesting(true);
-    setTimeout(() => setTesting(false), 1500);
+    setTestResult(null);
+    try {
+      const adapter = defaultRegistry.get(selectedAdapter);
+      if (!adapter) {
+        setTestResult('Not registered');
+        return;
+      }
+      const exists = await commandExists(adapter.binary);
+      setTestResult(exists ? 'OK - binary found' : 'FAIL - binary not in PATH');
+    } catch (err) {
+      setTestResult(err instanceof Error ? err.message : 'Error');
+    } finally {
+      setTesting(false);
+    }
   };
 
-  useInput((_input, key) => {
-    if (key.upArrow || key.downArrow) {
-      const dir = key.downArrow ? 1 : -1;
-      if (selection.section === 'adapters') {
-        const next = Math.max(0, Math.min(ADAPTERS.length - 1, selection.index + dir));
-        setSelection({ section: 'adapters', index: next });
-      } else {
-        const next = Math.max(0, Math.min(SETTINGS.length - 1, selection.index + dir));
-        setSelection({ section: 'settings', index: next });
-      }
+  const maxIndex = config.selectedSection === 'adapters'
+    ? ADAPTER_NAMES.length - 1
+    : SETTINGS_ITEMS.length - 1;
+
+  useInput((input, key) => {
+    if (key.upArrow || input === 'k') {
+      const next = Math.max(0, config.selectedIndex - 1);
+      dispatch({ type: 'CONFIG_SELECT', index: next });
+    }
+    if (key.downArrow || input === 'j') {
+      const next = Math.min(maxIndex, config.selectedIndex + 1);
+      dispatch({ type: 'CONFIG_SELECT', index: next });
     }
     if (key.tab) {
-      if (selection.section === 'adapters') setSelection({ section: 'settings', index: 0 });
-      else setSelection({ section: 'adapters', index: 0 });
+      if (config.selectedSection === 'adapters') {
+        dispatch({ type: 'CONFIG_SET_SECTION', section: 'settings' });
+      } else {
+        dispatch({ type: 'CONFIG_SET_SECTION', section: 'adapters' });
+      }
     }
-    if (key.return && selection.section === 'adapters') handleTest();
+    if (key.return && config.selectedSection === 'adapters') {
+      handleTest();
+    }
   });
 
+  const adapterInfo = adapters.find((a) => a.name === selectedAdapter);
+
   return (
-    <Box flexDirection="row" width="100%">
-      {/* Sidebar */}
-      <Box flexDirection="column" width={26} paddingX={1} paddingY={1}>
-        <Text color={colors.textMuted}>ADAPTERS</Text>
-        <Box flexDirection="column" marginTop={0} marginBottom={1}>
-          {ADAPTERS.map((adapter, i) => {
-            const info = ADAPTER_INFO[adapter];
-            const isSelected = selection.section === 'adapters' && selection.index === i;
+    <Box flexDirection="row" width="100%" paddingY={1} gap={1}>
+      {/* Left sidebar */}
+      <Box flexDirection="column" width={26} paddingX={1}>
+        <Text
+          color={config.selectedSection === 'adapters' ? colors.text : colors.overlay1}
+          bold={config.selectedSection === 'adapters'}
+        >
+          ADAPTERS
+        </Text>
+        <Box flexDirection="column" marginTop={1}>
+          {ADAPTER_NAMES.map((adapter, i) => {
+            const info = adapters.find((a) => a.name === adapter);
+            const isSelected = config.selectedSection === 'adapters' && config.selectedIndex === i;
+            const installed = info?.installed ?? false;
             return (
-              <Box key={adapter} flexDirection="row" paddingLeft={2}>
-                <Text color={isSelected ? colors.green : colors.textMuted}>
-                  {isSelected ? '\u25CF' : '\u25CB'}{' '}
+              <Box key={adapter} flexDirection="row" gap={1}>
+                <Text color={isSelected ? colors.accent : colors.textDim}>
+                  {isSelected ? CHARS.selected : ' '}
                 </Text>
-                <Text color={toolColor(adapter)}>{adapter}</Text>
-                <Text color={info.installed ? colors.green : colors.red}>
-                  {'  '}{info.installed ? '\u2713' : '\u2717'}
+                <Text color={toolColor(adapter)} bold={isSelected}>{adapter.padEnd(8)}</Text>
+                <Text color={installed ? colors.green : colors.red}>
+                  {installed ? CHARS.installed : CHARS.missing}
                 </Text>
               </Box>
             );
           })}
         </Box>
-        <Text color={colors.textMuted}>SETTINGS</Text>
-        <Box flexDirection="column" marginTop={0}>
-          {SETTINGS.map((s, i) => {
-            const isSelected = selection.section === 'settings' && selection.index === i;
-            return (
-              <Box key={s} flexDirection="row" paddingLeft={2}>
-                <Text color={isSelected ? colors.green : colors.textMuted}>
-                  {isSelected ? '\u25CF' : '\u25CB'}{' '}
-                </Text>
-                <Text color={isSelected ? colors.text : colors.textMuted}>{s}</Text>
-              </Box>
-            );
-          })}
+
+        <Box flexDirection="column" marginTop={2}>
+          <Text
+            color={config.selectedSection === 'settings' ? colors.text : colors.overlay1}
+            bold={config.selectedSection === 'settings'}
+          >
+            SETTINGS
+          </Text>
+          <Box flexDirection="column" marginTop={1}>
+            {SETTINGS_ITEMS.map((s, i) => {
+              const isSelected = config.selectedSection === 'settings' && config.selectedIndex === i;
+              const badge = s === 'classifiers' ? `${classifierCount} rules`
+                : s === 'redaction' ? '9 patterns'
+                : s === 'context' ? '128 KB max'
+                : 'standard';
+              return (
+                <Box key={s} flexDirection="row" gap={1}>
+                  <Text color={isSelected ? colors.accent : colors.textDim}>
+                    {isSelected ? CHARS.selected : ' '}
+                  </Text>
+                  <Text color={isSelected ? colors.text : colors.overlay1}>{s.padEnd(14)}</Text>
+                  <Text color={colors.textDim}>{badge}</Text>
+                </Box>
+              );
+            })}
+          </Box>
         </Box>
       </Box>
 
-      {/* Main panel */}
-      <Box flexDirection="column" flexGrow={1} paddingY={1}>
-        <Box flexDirection="column" paddingLeft={1} marginBottom={1}>
-          <Text color={colors.textMuted}>Adapters</Text>
-        </Box>
-        {ADAPTERS.map((adapter, i) => (
-          <AdapterCard
-            key={adapter}
-            adapter={adapter}
-            isSelected={selection.section === 'adapters' && selection.index === i}
-            testing={selection.section === 'adapters' && selection.index === i && testing}
-          />
-        ))}
-        <HRule />
-        <Box marginTop={1}>
-          {selection.section === 'settings' && (
-            <SettingsPanel setting={currentSetting} />
-          )}
-          {selection.section === 'adapters' && (
-            <Box paddingLeft={1} flexDirection="column">
-              <Text color={colors.textMuted}>Settings</Text>
-              <Box flexDirection="column" paddingLeft={2} marginTop={1}>
-                <KVRow label="Classifiers" value="21 rules (default)" />
-                <KVRow label="Redaction" value="9 patterns active" />
-                <KVRow label="Context" value="128 KB max" />
-                <KVRow label="Bridge" value="standard (threshold: 2)" />
-              </Box>
+      {/* Right detail panel */}
+      <Panel title={config.selectedSection === 'adapters' ? selectedAdapter.toUpperCase() : selectedSetting.toUpperCase()}>
+        {config.selectedSection === 'adapters' ? (
+          <Box flexDirection="column" marginTop={1}>
+            <KVRow label="Binary" value={adapterInfo?.binary ?? selectedAdapter} labelWidth={14} />
+            <KVRow
+              label="Status"
+              value={(adapterInfo?.installed ?? false) ? 'Installed' : 'Not found'}
+              valueColor={(adapterInfo?.installed ?? false) ? colors.green : colors.red}
+              labelWidth={14}
+            />
+            <KVRow label="Sessions" value={String(adapterInfo?.sessionCount ?? 0)} labelWidth={14} />
+            <KVRow
+              label="Last test"
+              value={testResult ?? 'never'}
+              valueColor={
+                testResult?.startsWith('OK') ? colors.green
+                  : testResult?.startsWith('FAIL') ? colors.red
+                  : colors.overlay1
+              }
+              labelWidth={14}
+            />
+            <Box marginTop={2}>
+              {testing ? (
+                <Box flexDirection="row" gap={1}>
+                  <Text color={colors.yellow}><Spinner type="dots" /></Text>
+                  <Text color={colors.yellow}>Testing connection...</Text>
+                </Box>
+              ) : (
+                <Text bold color={colors.accent}>Enter TEST CONNECTION</Text>
+              )}
             </Box>
-          )}
-        </Box>
-      </Box>
+          </Box>
+        ) : (
+          <Box flexDirection="column" marginTop={1}>
+            {selectedSetting === 'classifiers' && (
+              <>
+                <KVRow label="Total rules" value={String(classifierCount)} labelWidth={14} />
+                <KVRow label="Categories" value="API, Component, Hook, Test, ..." labelWidth={14} />
+                <KVRow label="Source" value={configData ? 'config file' : 'defaults'} labelWidth={14} />
+              </>
+            )}
+            {selectedSetting === 'redaction' && (
+              <>
+                <KVRow label="Patterns" value="9 active" labelWidth={14} />
+                <KVRow label="Tokens" value="enabled" valueColor={colors.green} labelWidth={14} />
+                <KVRow label="PII" value="enabled" valueColor={colors.green} labelWidth={14} />
+                <KVRow label="Custom" value="(none)" labelWidth={14} />
+              </>
+            )}
+            {selectedSetting === 'context' && (
+              <>
+                <KVRow label="Max size" value="128 KB" labelWidth={14} />
+                <KVRow label="Include tests" value="true" labelWidth={14} />
+                <KVRow label="Workspace" value="/tmp/mmctx-*" labelWidth={14} />
+              </>
+            )}
+            {selectedSetting === 'bridge' && (
+              <>
+                <KVRow label="Profile" value="standard" labelWidth={14} />
+                <KVRow label="Threshold" value="2 tools agree" labelWidth={14} />
+                <KVRow label="Auth model" value="claude-sonnet" labelWidth={14} />
+                <KVRow label="Timeout" value="120s" labelWidth={14} />
+              </>
+            )}
+          </Box>
+        )}
+      </Panel>
     </Box>
   );
 }

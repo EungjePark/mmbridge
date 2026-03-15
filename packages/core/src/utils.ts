@@ -151,3 +151,34 @@ export function limitBytes(text: string, maxBytes: number): string {
 export function nowIso(): string {
   return new Date().toISOString();
 }
+
+/** Extract agent_message texts from codex exec --json output (newline-delimited JSON). */
+export function parseCodexAgentMessages(raw: string): string[] {
+  const messages: string[] = [];
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('{')) continue;
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      if (
+        parsed !== null &&
+        typeof parsed === 'object' &&
+        'type' in parsed &&
+        'item' in parsed
+      ) {
+        const record = parsed as Record<string, unknown>;
+        const item = record.item as Record<string, unknown> | undefined;
+        if (
+          record.type === 'item.completed' &&
+          item?.type === 'agent_message' &&
+          typeof item.text === 'string'
+        ) {
+          messages.push(item.text);
+        }
+      }
+    } catch {
+      /* skip non-JSON lines */
+    }
+  }
+  return messages;
+}
