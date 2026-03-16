@@ -25,15 +25,17 @@ interface FlowNode {
 
 interface ReviewFlowMapProps {
   title: string;
+  recall?: FlowNode | null;
   context: FlowNode;
   tools: ToolFlow[];
   bridge?: FlowNode | null;
   interpretation?: FlowNode | null;
   findings: FlowNode;
+  handoff?: FlowNode | null;
   footer?: string | null;
 }
 
-const FLOW_PHASES = ['context', 'review', 'bridge', 'interpret', 'enrich'] as const;
+const FLOW_PHASES = ['recall', 'context', 'review', 'bridge', 'interpret', 'enrich', 'handoff'] as const;
 
 function statusIcon(status: FlowStatus): string {
   switch (status) {
@@ -137,10 +139,10 @@ function deriveLiveTools(liveState: LiveState): ToolFlow[] {
 export function buildLiveReviewFlow(liveState: LiveState): ReviewFlowMapProps {
   const tools = deriveLiveTools(liveState);
   const bridgeEnabled = liveState.tool === 'all' || liveState.phase === 'bridge' || liveState.phase === 'interpret';
-  const interpretationEnabled = liveState.phase === 'interpret';
+  const interpretationEnabled = liveState.phase === 'interpret' || liveState.phase === 'handoff';
 
   const findingsDetail =
-    liveState.phase === 'enrich'
+    liveState.phase === 'enrich' || liveState.phase === 'handoff'
       ? `${liveState.events.length} events · parsing results`
       : liveState.phase === 'interpret'
         ? 'waiting for interpretation'
@@ -148,10 +150,21 @@ export function buildLiveReviewFlow(liveState: LiveState): ReviewFlowMapProps {
 
   return {
     title: 'LIVE REVIEW MAP',
+    recall: {
+      label: 'Recall',
+      status: derivePhaseStatus(liveState.phase, 'recall'),
+      detail:
+        liveState.memoryHits && liveState.memoryHits.length > 0
+          ? `${liveState.memoryHits.length} hit(s) loaded`
+          : liveState.phase === 'recall'
+            ? 'loading project memory'
+            : 'ready',
+      accentColor: colors.yellow,
+    },
     context: {
       label: 'Context',
       status: derivePhaseStatus(liveState.phase, 'context'),
-      detail: liveState.phase === 'context' ? 'building workspace' : 'workspace ready',
+      detail: liveState.contextDigest ?? (liveState.phase === 'context' ? 'building workspace' : 'workspace ready'),
     },
     tools,
     bridge: bridgeEnabled
@@ -175,6 +188,17 @@ export function buildLiveReviewFlow(liveState: LiveState): ReviewFlowMapProps {
       status: derivePhaseStatus(liveState.phase, 'enrich'),
       detail: findingsDetail,
       accentColor: colors.sky,
+    },
+    handoff: {
+      label: 'Handoff',
+      status:
+        liveState.handoff?.status === 'error'
+          ? 'error'
+          : liveState.handoff?.status === 'done'
+            ? 'done'
+            : derivePhaseStatus(liveState.phase, 'handoff'),
+      detail: liveState.handoff?.summary ?? liveState.handoff?.path ?? 'writing session handoff',
+      accentColor: colors.green,
     },
     footer: `${liveState.tool} · ${liveState.mode}`,
   };
@@ -218,6 +242,15 @@ export function buildSessionReviewFlow(input: {
 
   return {
     title: 'SESSION MAP',
+    recall:
+      input.ancestryChain && input.ancestryChain.length > 1
+        ? {
+            label: 'Recall',
+            status,
+            detail: `${input.ancestryChain.length - 1} prior session(s) linked`,
+            accentColor: colors.yellow,
+          }
+        : null,
     context: {
       label: 'Context',
       status,
@@ -250,6 +283,12 @@ export function buildSessionReviewFlow(input: {
       status,
       detail: formatSeveritySummary(input.findings),
       accentColor: colors.sky,
+    },
+    handoff: {
+      label: 'Handoff',
+      status,
+      detail: 'session artifact saved',
+      accentColor: colors.green,
     },
     footer,
   };
@@ -299,19 +338,23 @@ function ToolLane({ tools }: { tools: ToolFlow[] }): React.ReactElement {
 
 export function ReviewFlowMap({
   title,
+  recall,
   context,
   tools,
   bridge,
   interpretation,
   findings,
+  handoff,
   footer,
 }: ReviewFlowMapProps): React.ReactElement {
   const stages: Array<FlowNode | { kind: 'tools'; tools: ToolFlow[] }> = [
+    ...(recall ? [recall] : []),
     context,
     { kind: 'tools', tools },
     ...(bridge ? [bridge] : []),
     ...(interpretation ? [interpretation] : []),
     findings,
+    ...(handoff ? [handoff] : []),
   ];
 
   return (

@@ -25,8 +25,11 @@ export interface ReviewPipelineOptions {
   commit?: string;
   bridge?: 'none' | 'standard' | 'interpreted';
   bridgeProfile?: 'standard' | 'strict' | 'relaxed';
+  recallPromptContext?: string;
+  recallSummary?: string;
   /** Called at each pipeline phase for progress updates */
   onProgress?: (phase: string, detail: string) => void;
+  onContextReady?: (contextIndex: ReturnType<typeof buildContextIndex>) => void;
   /** Called with raw stdout chunks from adapter processes */
   onStdout?: (tool: string, chunk: string) => void;
   /** Adapter runner — injected to avoid circular dependency on @mmbridge/adapters */
@@ -73,6 +76,7 @@ export interface ReviewPipelineResult {
   findings: Finding[];
   externalSessionId?: string | null;
   followupSupported?: boolean;
+  contextIndex: ReturnType<typeof buildContextIndex>;
   toolResults?: Array<{ tool: string; findingCount: number; skipped: boolean; error?: string }>;
   interpretation?: InterpretResult | null;
   resultIndex: ResultIndex;
@@ -99,10 +103,47 @@ export async function runReviewPipeline(options: ReviewPipelineOptions): Promise
     mode,
     baseRef: options.baseRef,
     commit: options.commit,
+    recallPromptContext: options.recallPromptContext,
+    recallSummary: options.recallSummary,
   });
 
   try {
     const contextIndex = buildCtxIndex(ctx, projectDir, mode);
+    options.onContextReady?.(contextIndex);
+
+    if (ctx.changedFiles.length === 0 && (options.baseRef || options.commit)) {
+      onProgress?.('enrich', 'No changed files detected for this run.');
+      const summary = 'No changed files to review for this run.';
+      const resultIndex = buildResultIndex({
+        summary,
+        findings: [],
+        parseState: 'empty',
+        followupSupported: false,
+      });
+      const session = options.saveSession
+        ? await options.saveSession({
+            tool: tool === 'all' ? 'bridge' : tool,
+            mode,
+            projectDir,
+            workspace: ctx.workspace,
+            summary,
+            findings: [],
+            contextIndex,
+            resultIndex,
+            followupSupported: false,
+            status: 'complete',
+          })
+        : { id: 'unsaved' };
+
+      return {
+        sessionId: session.id,
+        summary,
+        findings: [],
+        followupSupported: false,
+        contextIndex,
+        resultIndex,
+      };
+    }
 
     // Bridge mode (tool='all' or explicit bridge)
     if (tool === 'all' || bridge !== 'none') {
@@ -172,6 +213,7 @@ async function runSingleToolPipeline(
     findings: enriched.findings,
     externalSessionId: adapterResult.externalSessionId,
     followupSupported: adapterResult.followupSupported,
+    contextIndex,
     resultIndex,
   };
 }
@@ -266,6 +308,7 @@ async function runBridgePipeline(
     sessionId: session.id,
     summary: bridgeResult.summary,
     findings: bridgeResult.findings,
+    contextIndex,
     toolResults: orchResult.results.map((r) => ({
       tool: r.tool,
       findingCount: r.findings.length,

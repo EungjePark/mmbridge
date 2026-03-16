@@ -38,6 +38,16 @@ const DASHBOARD_MENU = [
     command: 'mmbridge review --tool all --bridge interpreted',
   },
   {
+    title: 'Latest Handoff',
+    description: 'Inspect the latest persisted session handoff artifact',
+    command: 'mmbridge handoff --latest',
+  },
+  {
+    title: 'Memory Search',
+    description: 'Search project memory for prior decisions and hotspots',
+    command: 'mmbridge memory search validation',
+  },
+  {
     title: 'Sessions',
     description: 'Inspect saved findings, followups, and triage state',
     tab: 'sessions' as const,
@@ -180,6 +190,55 @@ function LastReviewSection({ lastReview }: LastReviewSectionProps): React.ReactE
   );
 }
 
+function LatestHandoffSection({
+  handoff,
+}: {
+  handoff: import('../store.js').LatestHandoffPreview | null;
+}): React.ReactElement {
+  return (
+    <Box flexDirection="column" paddingX={1} gap={0}>
+      <Text color={colors.overlay1} bold>
+        LATEST HANDOFF
+      </Text>
+      {handoff ? (
+        <>
+          <Text color={colors.subtext0}>{truncate(handoff.summary, 44)}</Text>
+          <Text color={colors.textDim}>{formatRelativeTime(handoff.createdAt)}</Text>
+          <Text color={colors.peach} wrap="truncate-end">
+            {handoff.nextCommand}
+          </Text>
+        </>
+      ) : (
+        <Text color={colors.textDim}>No handoff artifact yet</Text>
+      )}
+    </Box>
+  );
+}
+
+function MemoryPreviewSection({
+  items,
+}: {
+  items: import('../store.js').MemoryPreviewItem[];
+}): React.ReactElement {
+  return (
+    <Box flexDirection="column" paddingX={1} gap={0}>
+      <Text color={colors.overlay1} bold>
+        MEMORY PREVIEW
+      </Text>
+      {items.length > 0 ? (
+        items.slice(0, 4).map((item) => (
+          <Box key={item.id} flexDirection="column">
+            <Text color={colors.subtext0}>{truncate(`[${item.type}] ${item.title}`, 44)}</Text>
+            <Text color={colors.textDim}>{formatRelativeTime(item.createdAt)}</Text>
+          </Box>
+        ))
+      ) : (
+        <Text color={colors.textDim}>No indexed memory yet</Text>
+      )}
+    </Box>
+  );
+}
+
 // ─── Quick Start section ──────────────────────────────────────────────────────
 
 const QUICK_START_COMMANDS = [
@@ -298,7 +357,7 @@ function ActivitySection({ dailyCounts, aggregateSeverity, totalSessions }: Acti
 
 export function DashboardView(): React.ReactElement {
   const [state, dispatch] = useTui();
-  const { adapters, adaptersLoading, projectInfo, lastReview, sessions } = state;
+  const { adapters, adaptersLoading, projectInfo, lastReview, latestHandoff, memoryPreview, sessions } = state;
   const liveState = useLiveState();
 
   const stats = useMemo(() => computeSessionStats(sessions), [sessions]);
@@ -383,6 +442,8 @@ export function DashboardView(): React.ReactElement {
                 totalSessions={sessions.length}
               />
               <LastReviewSection lastReview={lastReview} />
+              <LatestHandoffSection handoff={latestHandoff} />
+              <MemoryPreviewSection items={memoryPreview} />
               {sessions[0] && (
                 <ReviewFlowMap
                   {...buildSessionReviewFlow({

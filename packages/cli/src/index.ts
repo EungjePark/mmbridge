@@ -6,8 +6,14 @@ import { Command } from 'commander';
 import type { DiffCommandOptions } from './commands/diff.js';
 import type { DoctorOptions } from './commands/doctor.js';
 import type { FollowupCommandOptions } from './commands/followup.js';
+import type { HandoffCommandOptions } from './commands/handoff.js';
 import type { HookCommandOptions } from './commands/hook.js';
 import type { InitCommandOptions } from './commands/init.js';
+import type {
+  MemorySearchCommandOptions,
+  MemoryShowCommandOptions,
+  MemoryTimelineCommandOptions,
+} from './commands/memory.js';
 import type { ReviewCommandOptions } from './commands/review.js';
 import type { SyncAgentsOptions } from './commands/sync-agents.js';
 
@@ -17,7 +23,11 @@ const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-
 export type {
   ReviewCommandOptions,
   FollowupCommandOptions,
+  HandoffCommandOptions,
   DoctorOptions,
+  MemorySearchCommandOptions,
+  MemoryShowCommandOptions,
+  MemoryTimelineCommandOptions,
   SyncAgentsOptions,
   InitCommandOptions,
   DiffCommandOptions,
@@ -119,6 +129,58 @@ export async function main(): Promise<void> {
     .action(async (opts: DoctorOptions) => {
       const { runDoctorCommand } = await import('./commands/doctor.js');
       await runDoctorCommand(opts);
+    });
+
+  // ── handoff ──
+  program
+    .command('handoff')
+    .description('Show or export the latest session handoff artifact for this project')
+    .option('--session <id>', 'Specific local session ID')
+    .option('-p, --project <dir>', 'Project directory (default: cwd)')
+    .option('--write <path>', 'Copy the markdown handoff artifact to a path')
+    .option('--json', 'Output JSON instead of text')
+    .action(async (opts: HandoffCommandOptions) => {
+      const { runHandoffCommand } = await import('./commands/handoff.js');
+      await runHandoffCommand(opts);
+    });
+
+  // ── memory ──
+  const memoryCmd = program.command('memory').description('Search and inspect project memory');
+
+  memoryCmd
+    .command('search <query>')
+    .description('Search indexed project memory')
+    .option('-p, --project <dir>', 'Project directory (default: cwd)')
+    .option('--type <type>', 'Memory bucket type')
+    .option('--limit <n>', 'Result limit')
+    .option('--json', 'Output JSON')
+    .action(async (query: string, opts: Omit<MemorySearchCommandOptions, 'query'>) => {
+      const { runMemorySearchCommand } = await import('./commands/memory.js');
+      await runMemorySearchCommand({ ...opts, query });
+    });
+
+  memoryCmd
+    .command('timeline')
+    .description('Show recent memory entries for a session or query')
+    .option('--session <id>', 'Specific local session ID')
+    .option('--query <text>', 'Search query')
+    .option('-p, --project <dir>', 'Project directory (default: cwd)')
+    .option('--limit <n>', 'Result limit')
+    .option('--json', 'Output JSON')
+    .action(async (opts: MemoryTimelineCommandOptions) => {
+      const { runMemoryTimelineCommand } = await import('./commands/memory.js');
+      await runMemoryTimelineCommand(opts);
+    });
+
+  memoryCmd
+    .command('show')
+    .description('Show specific memory entries by id')
+    .requiredOption('--ids <id,id,...>', 'Comma-separated memory ids')
+    .option('-p, --project <dir>', 'Project directory (default: cwd)')
+    .option('--json', 'Output JSON')
+    .action(async (opts: MemoryShowCommandOptions) => {
+      const { runMemoryShowCommand } = await import('./commands/memory.js');
+      await runMemoryShowCommand(opts);
     });
 
   // ── sync-agents ──

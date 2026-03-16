@@ -1,6 +1,6 @@
 import { defaultRegistry } from '@mmbridge/adapters';
 import { commandExists, getDefaultBaseRef, getGitStatusSummary, getHead, runCommand } from '@mmbridge/core';
-import { SessionStore } from '@mmbridge/session-store';
+import { ProjectMemoryStore, SessionStore } from '@mmbridge/session-store';
 import { useCallback, useEffect } from 'react';
 import type { AdapterStatus, FindingItem, LastReview, ProjectInfo, TuiAction } from '../store.js';
 import { countBySeverity } from '../utils/format.js';
@@ -11,11 +11,12 @@ export function useLoadData(dispatch: React.Dispatch<TuiAction>): { refresh: () 
     dispatch({ type: 'SET_SESSIONS_LOADING', loading: true });
 
     const store = new SessionStore();
+    const memoryStore = new ProjectMemoryStore(store.baseDir);
     const projectDir = process.cwd();
     const registeredNames = defaultRegistry.list();
 
     // Fire all independent I/O in parallel: sessions, binary checks, git info
-    const [allSessions, binaryChecks, gitResult] = await Promise.all([
+    const [allSessions, binaryChecks, gitResult, latestHandoff, memoryPreview] = await Promise.all([
       store.list({ projectDir }).catch(() => []),
       Promise.all(
         registeredNames.map(async (toolName) => {
@@ -33,6 +34,8 @@ export function useLoadData(dispatch: React.Dispatch<TuiAction>): { refresh: () 
           .then((r) => (r.ok ? r.stdout.trim() : null))
           .catch(() => null),
       ]).catch(() => null),
+      memoryStore.getLatestHandoff(projectDir).catch(() => null),
+      memoryStore.searchMemory({ projectDir, query: '', limit: 4 }).catch(() => []),
     ]);
 
     // Group sessions by tool in a single pass
@@ -90,6 +93,28 @@ export function useLoadData(dispatch: React.Dispatch<TuiAction>): { refresh: () 
     } else {
       dispatch({ type: 'SET_LAST_REVIEW', review: null });
     }
+
+    dispatch({
+      type: 'SET_LATEST_HANDOFF',
+      handoff: latestHandoff
+        ? {
+            sessionId: latestHandoff.sessionId,
+            summary: latestHandoff.summary,
+            nextCommand: latestHandoff.nextCommand,
+            createdAt: latestHandoff.createdAt,
+            path: latestHandoff.markdownPath,
+          }
+        : null,
+    });
+    dispatch({
+      type: 'SET_MEMORY_PREVIEW',
+      items: memoryPreview.map((entry) => ({
+        id: entry.id,
+        type: entry.type,
+        title: entry.title,
+        createdAt: entry.createdAt,
+      })),
+    });
   }, [dispatch]);
 
   useEffect(() => {

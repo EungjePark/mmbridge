@@ -72,7 +72,11 @@ export async function renderReviewConsole(report: import('./legacy-types.js').Re
     ]
       .filter(Boolean)
       .join(' · ') || 'No findings';
+  const recallDetail = report.recalledMemorySummary ?? 'No recalled memory';
+  const handoffDetail = report.handoffPath ?? report.handoff?.markdownPath ?? null;
 
+  flowLines.push(`✓ Recall     ${recallDetail}`);
+  flowLines.push('│');
   flowLines.push(`✓ Context    ${contextDetail}`);
   flowLines.push('│');
   flowLines.push(`✓ Tools      ${toolLabel} · ${toolDetail}`);
@@ -86,6 +90,10 @@ export async function renderReviewConsole(report: import('./legacy-types.js').Re
   }
   flowLines.push('│');
   flowLines.push(`✓ Findings   ${findingDetail}`);
+  if (handoffDetail) {
+    flowLines.push('│');
+    flowLines.push(`✓ Handoff    ${handoffDetail}`);
+  }
 
   const summary = report.summary?.trim() || `${findings.length} finding(s)`;
   const falsePositiveKeys = new Set(
@@ -116,6 +124,17 @@ export async function renderReviewConsole(report: import('./legacy-types.js').Re
     consensusLines.length > 0 ? '' : null,
     consensusLines.length > 0 ? 'Consensus' : null,
     ...(consensusLines.length > 0 ? consensusLines : []),
+    '',
+    'Recall',
+    recallDetail,
+    ...(report.recalledMemoryHits && report.recalledMemoryHits.length > 0
+      ? report.recalledMemoryHits.slice(0, 5).map((entry) => `- [${entry.type}] ${entry.title}`)
+      : []),
+    '',
+    'Next',
+    report.nextPrompt ?? 'No next prompt generated.',
+    report.nextCommand ? '' : null,
+    report.nextCommand ? report.nextCommand : null,
   ].filter((line): line is string => line != null);
 
   process.stdout.write(`${lines.join('\n')}\n`);

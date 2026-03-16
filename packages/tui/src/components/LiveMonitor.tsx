@@ -84,11 +84,13 @@ export function LiveMonitor({
   const progress =
     liveState.progress ??
     {
+      recall: 8,
       context: 18,
       review: 46,
       bridge: 70,
       interpret: 84,
       enrich: 96,
+      handoff: 100,
     }[liveState.phase] ??
     8;
   const visible = liveState.streamLines.slice(-streamLines);
@@ -96,6 +98,7 @@ export function LiveMonitor({
   const telemetry = liveState.telemetry;
   const activeTools = (liveState.toolStates ?? []).filter((tool) => tool.status === 'running').length;
   const doneTools = (liveState.toolStates ?? []).filter((tool) => tool.status === 'done').length;
+  const memoryHits = liveState.memoryHits ?? [];
 
   const left = (
     <Box flexDirection="column" paddingX={1} gap={1}>
@@ -132,8 +135,33 @@ export function LiveMonitor({
         ) : null}
       </Box>
 
+      <Box flexDirection="column">
+        <Text color={colors.overlay1}>CONTEXT + RECALL</Text>
+        <Text color={colors.subtext0}>{liveState.contextDigest ?? 'building workspace context'}</Text>
+        <Text color={colors.textDim}>{liveState.redactionDigest ?? 'redaction pending'}</Text>
+        {liveState.copiedFilesSample && liveState.copiedFilesSample.length > 0 ? (
+          <Text color={colors.textDim} wrap="truncate-end">
+            files: {liveState.copiedFilesSample.join(', ')}
+          </Text>
+        ) : null}
+        {memoryHits.length > 0 ? (
+          memoryHits.slice(0, 4).map((item) => (
+            <Text key={item.id} color={colors.subtext0} wrap="truncate-end">
+              [{item.type}] {item.title}
+            </Text>
+          ))
+        ) : (
+          <Text color={colors.textDim}>no prior memory hits</Text>
+        )}
+        {liveState.handoff ? (
+          <Text color={liveState.handoff.status === 'error' ? colors.red : colors.green} wrap="truncate-end">
+            handoff: {liveState.handoff.summary ?? liveState.handoff.path ?? liveState.handoff.status}
+          </Text>
+        ) : null}
+      </Box>
+
       <Box flexDirection="column" gap={0}>
-        <Text color={colors.overlay1}>STREAM</Text>
+        <Text color={colors.overlay1}>STREAM FEED</Text>
         {visible.length === 0 ? (
           <Text color={colors.textDim}>waiting for output...</Text>
         ) : (

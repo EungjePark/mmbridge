@@ -61,6 +61,8 @@ export interface CreateContextOptions {
   commit?: string;
   maxContextBytes?: number;
   tools?: string[];
+  recallPromptContext?: string;
+  recallSummary?: string;
 }
 
 export interface RedactionResult {

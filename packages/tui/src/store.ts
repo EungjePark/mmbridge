@@ -45,6 +45,21 @@ export interface LastReview {
   summary: string;
 }
 
+export interface LatestHandoffPreview {
+  sessionId: string;
+  summary: string;
+  nextCommand: string;
+  createdAt: string;
+  path: string;
+}
+
+export interface MemoryPreviewItem {
+  id: string;
+  type: string;
+  title: string;
+  createdAt: string;
+}
+
 export interface SessionDetailData {
   sessionId: string;
   contextIndex: import('@mmbridge/core').ContextIndex | null;
@@ -63,6 +78,8 @@ export interface TuiState {
   adaptersLoading: boolean;
   projectInfo: ProjectInfo | null;
   lastReview: LastReview | null;
+  latestHandoff: LatestHandoffPreview | null;
+  memoryPreview: MemoryPreviewItem[];
   sessions: Session[];
   sessionsLoading: boolean;
 
@@ -98,6 +115,8 @@ export type TuiAction =
   | { type: 'SET_ADAPTERS_LOADING'; loading: boolean }
   | { type: 'SET_PROJECT_INFO'; info: ProjectInfo | null }
   | { type: 'SET_LAST_REVIEW'; review: LastReview | null }
+  | { type: 'SET_LATEST_HANDOFF'; handoff: LatestHandoffPreview | null }
+  | { type: 'SET_MEMORY_PREVIEW'; items: MemoryPreviewItem[] }
   | { type: 'SET_SESSIONS'; sessions: Session[] }
   | { type: 'SET_SESSIONS_LOADING'; loading: boolean }
   | { type: 'REVIEW_SET_TOOL'; index: number }
@@ -135,6 +154,8 @@ export const initialState: TuiState = {
   adaptersLoading: true,
   projectInfo: null,
   lastReview: null,
+  latestHandoff: null,
+  memoryPreview: [],
   sessions: [],
   sessionsLoading: true,
 
@@ -201,6 +222,12 @@ export function tuiReducer(state: TuiState, action: TuiAction): TuiState {
 
     case 'SET_LAST_REVIEW':
       return { ...state, lastReview: action.review };
+
+    case 'SET_LATEST_HANDOFF':
+      return { ...state, latestHandoff: action.handoff };
+
+    case 'SET_MEMORY_PREVIEW':
+      return { ...state, memoryPreview: action.items };
 
     case 'SET_SESSIONS':
       return { ...state, sessions: action.sessions, sessionsLoading: false };

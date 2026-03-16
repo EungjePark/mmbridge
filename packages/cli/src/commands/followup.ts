@@ -20,12 +20,13 @@ export interface FollowupCommandOptions {
 export async function runFollowupCommand(options: FollowupCommandOptions): Promise<void> {
   const projectDir = resolveProjectDir(options.projectDir);
 
-  const { SessionStore } = await importSessionStore();
+  const { ProjectMemoryStore, SessionStore } = await importSessionStore();
   const { buildResultIndex, parseFindings } = await importCore();
   const { runFollowupAdapter } = await importAdapters(projectDir);
   const { renderReviewConsole } = await importTui();
 
   const sessionStore = new SessionStore();
+  const memoryStore = new ProjectMemoryStore(sessionStore.baseDir);
 
   let sessionId = options.explicitSessionId;
   let parentSessionId: string | undefined;
@@ -48,46 +49,125 @@ export async function runFollowupCommand(options: FollowupCommandOptions): Promi
     parentSessionId = sessions.find((session) => session.externalSessionId === sessionId)?.id;
   }
 
-  const result = await runFollowupAdapter(options.tool, {
-    workspace: projectDir,
-    cwd: projectDir,
-    sessionId,
-    prompt: options.prompt,
+  const recall = await memoryStore.buildRecall(projectDir, {
+    mode: 'followup',
+    tool: options.tool,
+    queryText: options.prompt,
+    sessionId: parentSessionId,
   });
 
-  const findings = parseFindings(result.text);
-  const resultIndex = buildResultIndex({
-    summary: result.text,
-    findings,
-    followupSupported: result.followupSupported,
-    rawOutput: result.text,
-    parseState: 'raw',
-  });
-  const savedSession = await sessionStore.save({
-    tool: options.tool,
-    mode: 'followup',
-    projectDir,
-    workspace: projectDir,
-    externalSessionId: result.externalSessionId ?? sessionId,
-    parentSessionId,
-    summary: result.text,
-    findings,
-    resultIndex,
-    followupSupported: result.followupSupported,
-    status: result.ok ? 'complete' : 'error',
-  });
-
-  const report = {
-    tool: options.tool,
-    mode: 'followup',
-    status: result.ok ? 'complete' : 'error',
-    localSessionId: savedSession.id,
-    externalSessionId: result.externalSessionId ?? sessionId,
-    summary: result.text,
-    findings,
-    resultIndex,
-    followupSupported: result.followupSupported,
+  const finalPrompt = recall.promptContext
+    ? ['# Recall', recall.promptContext, '', '# Follow-up', options.prompt].join('\n\n')
+    : options.prompt;
+  let report: {
+    tool: string;
+    mode: string;
+    status: string;
+    localSessionId: string;
+    externalSessionId?: string;
+    summary: string;
+    findings: ReturnType<typeof parseFindings>;
+    resultIndex: ReturnType<typeof buildResultIndex>;
+    followupSupported?: boolean;
+    recalledMemorySummary: string;
+    recalledMemoryHits: typeof recall.memoryHits;
+    handoff: Awaited<ReturnType<typeof memoryStore.createOrUpdateHandoff>>['artifact'];
+    handoffPath: string;
+    nextPrompt: string;
+    nextCommand: string;
   };
+
+  try {
+    const result = await runFollowupAdapter(options.tool, {
+      workspace: projectDir,
+      cwd: projectDir,
+      sessionId,
+      prompt: finalPrompt,
+    });
+
+    const findings = parseFindings(result.text);
+    const resultIndex = buildResultIndex({
+      summary: result.text,
+      findings,
+      followupSupported: result.followupSupported,
+      rawOutput: result.text,
+      parseState: 'raw',
+    });
+    const savedSession = await sessionStore.save({
+      tool: options.tool,
+      mode: 'followup',
+      projectDir,
+      workspace: projectDir,
+      externalSessionId: result.externalSessionId ?? sessionId,
+      parentSessionId,
+      summary: result.text,
+      findings,
+      resultIndex,
+      recalledMemoryIds: recall.recalledMemoryIds,
+      followupSupported: result.followupSupported,
+      status: result.ok ? 'complete' : 'error',
+    });
+    const handoff = await memoryStore.createOrUpdateHandoff(projectDir, savedSession.id, recall.recalledMemoryIds);
+
+    report = {
+      tool: options.tool,
+      mode: 'followup',
+      status: result.ok ? 'complete' : 'error',
+      localSessionId: savedSession.id,
+      externalSessionId: result.externalSessionId ?? sessionId,
+      summary: result.text,
+      findings,
+      resultIndex,
+      followupSupported: result.followupSupported,
+      recalledMemorySummary: recall.summary,
+      recalledMemoryHits: recall.memoryHits,
+      handoff: handoff.artifact,
+      handoffPath: handoff.artifact.markdownPath,
+      nextPrompt: handoff.recommendedNextPrompt,
+      nextCommand: handoff.recommendedNextCommand,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const resultIndex = buildResultIndex({
+      summary: message,
+      findings: [],
+      rawOutput: message,
+      parseState: 'error',
+    });
+    const savedSession = await sessionStore.save({
+      tool: options.tool,
+      mode: 'followup',
+      projectDir,
+      workspace: projectDir,
+      externalSessionId: sessionId,
+      parentSessionId,
+      summary: message,
+      findings: [],
+      resultIndex,
+      recalledMemoryIds: recall.recalledMemoryIds,
+      followupSupported: false,
+      status: 'error',
+    });
+    const handoff = await memoryStore.createOrUpdateHandoff(projectDir, savedSession.id, recall.recalledMemoryIds);
+    report = {
+      tool: options.tool,
+      mode: 'followup',
+      status: 'error',
+      localSessionId: savedSession.id,
+      externalSessionId: sessionId,
+      summary: message,
+      findings: [],
+      resultIndex,
+      followupSupported: false,
+      recalledMemorySummary: recall.summary,
+      recalledMemoryHits: recall.memoryHits,
+      handoff: handoff.artifact,
+      handoffPath: handoff.artifact.markdownPath,
+      nextPrompt: handoff.recommendedNextPrompt,
+      nextCommand: handoff.recommendedNextCommand,
+    };
+    process.exitCode = 1;
+  }
 
   if (options.json) {
     jsonOutput(report);

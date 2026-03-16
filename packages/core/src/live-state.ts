@@ -8,6 +8,15 @@ export interface LiveState {
   mode: string;
   phase: string;
   currentDetail?: string;
+  contextDigest?: string;
+  redactionDigest?: string;
+  copiedFilesSample?: string[];
+  memoryHits?: Array<{ id: string; type: string; title: string; severity?: string | null; file?: string | null }>;
+  handoff?: {
+    status: 'pending' | 'writing' | 'done' | 'error';
+    path?: string | null;
+    summary?: string | null;
+  };
   elapsed: number;
   startedAt: string;
   streamLines: string[];

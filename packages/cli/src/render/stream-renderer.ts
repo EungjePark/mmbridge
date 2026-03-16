@@ -1,5 +1,7 @@
 import type { Finding, LiveState } from '@mmbridge/core';
 import { clearLiveState, writeLiveState } from '@mmbridge/core';
+import type { ContextIndex } from '@mmbridge/core';
+import type { RecallEntrySummary } from '@mmbridge/session-store';
 
 // ─── Catppuccin Mocha ANSI palette ──────────────────────────────────────────
 
@@ -37,6 +39,13 @@ export class StreamRenderer {
   private readonly startedAt: Date;
   private currentPhase = '';
   private currentDetail = '';
+  private sawBridgePhase = false;
+  private sawInterpretPhase = false;
+  private contextDigest = '';
+  private redactionDigest = '';
+  private copiedFilesSample: string[] = [];
+  private memoryHits: RecallEntrySummary[] = [];
+  private handoff: LiveState['handoff'] = { status: 'pending' };
   private streamLines: string[] = [];
   private events: Array<{ time: string; message: string }> = [];
   private readonly toolStates = new Map<
@@ -71,6 +80,8 @@ export class StreamRenderer {
     const phaseChanged = this.currentPhase !== name;
     this.currentPhase = name;
     this.currentDetail = detail;
+    if (name === 'bridge') this.sawBridgePhase = true;
+    if (name === 'interpret') this.sawInterpretPhase = true;
     this.updateToolStateFromPhase(name, detail);
     const elapsed = this.elapsedStr();
     process.stdout.write(
@@ -80,6 +91,28 @@ export class StreamRenderer {
       process.stdout.write(`${C.DIM}│  ${this.renderPhaseMap()}${C.RESET}\n`);
     }
     this.events.push({ time: new Date().toISOString(), message: `${name}: ${detail}` });
+    this.scheduleLiveStateWrite();
+  }
+
+  setRecall(summary: string, memoryHits: RecallEntrySummary[]): void {
+    this.memoryHits = memoryHits.slice(0, 6);
+    if (summary) {
+      this.events.push({ time: new Date().toISOString(), message: `recall: ${summary}` });
+    }
+    this.scheduleLiveStateWrite();
+  }
+
+  setContextIndex(contextIndex: ContextIndex): void {
+    this.contextDigest = `${contextIndex.changedFiles} changed · ${contextIndex.copiedFiles} copied`;
+    this.redactionDigest = contextIndex.redaction
+      ? `${contextIndex.redaction.usedRuleCount} redaction rule(s)`
+      : '0 redaction rule(s)';
+    this.copiedFilesSample = contextIndex.changedSample.slice(0, 5);
+    this.scheduleLiveStateWrite();
+  }
+
+  setHandoff(status: NonNullable<LiveState['handoff']>['status'], path?: string | null, summary?: string | null): void {
+    this.handoff = { status, path: path ?? null, summary: summary ?? null };
     this.scheduleLiveStateWrite();
   }
 
@@ -95,7 +128,6 @@ export class StreamRenderer {
   }
 
   done(sessionId: string): void {
-    this.currentPhase = 'enrich';
     process.stdout.write(`${C.DIM}│  ${this.renderPhaseMap()}${C.RESET}\n`);
     const elapsed = this.elapsedStr();
     process.stdout.write(
@@ -172,16 +204,20 @@ export class StreamRenderer {
 
   private renderPhaseMap(): string {
     const stages = [
+      { key: 'recall', label: 'Recall' },
       { key: 'context', label: 'Context' },
       { key: 'review', label: this.tool === 'all' ? 'Tools' : this.tool },
-      ...(this.tool === 'all' || this.currentPhase === 'bridge' || this.currentPhase === 'interpret'
+      ...(this.tool === 'all' || this.sawBridgePhase || this.currentPhase === 'bridge'
         ? [{ key: 'bridge', label: 'Bridge' }]
         : []),
-      ...(this.currentPhase === 'interpret' ? [{ key: 'interpret', label: 'Interpret' }] : []),
+      ...(this.sawInterpretPhase || this.currentPhase === 'interpret'
+        ? [{ key: 'interpret', label: 'Interpret' }]
+        : []),
       { key: 'enrich', label: 'Findings' },
+      { key: 'handoff', label: 'Handoff' },
     ] as const;
 
-    const order = ['context', 'review', 'bridge', 'interpret', 'enrich'];
+    const order = ['recall', 'context', 'review', 'bridge', 'interpret', 'enrich', 'handoff'];
     const currentIndex = order.indexOf(this.currentPhase);
 
     return stages
@@ -255,6 +291,11 @@ export class StreamRenderer {
       mode: this.mode,
       phase: this.currentPhase,
       currentDetail: this.currentDetail,
+      contextDigest: this.contextDigest || undefined,
+      redactionDigest: this.redactionDigest || undefined,
+      copiedFilesSample: this.copiedFilesSample,
+      memoryHits: this.memoryHits.map((hit) => ({ ...hit })),
+      handoff: this.handoff,
       elapsed: Date.now() - this.startedAt.getTime(),
       startedAt: this.startedAt.toISOString(),
       streamLines: [...this.streamLines],

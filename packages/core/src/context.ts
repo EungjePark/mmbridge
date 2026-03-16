@@ -7,15 +7,7 @@ import { getChangedFiles, getDefaultBaseRef, getDiff, getHead } from './git.js';
 import { redactWorkspace } from './redaction.js';
 import { ADAPTER_NAMES } from './types.js';
 import type { ContextWorkspace, CreateContextOptions } from './types.js';
-import {
-  ensureDir,
-  isBinaryExtension,
-  isPotentialSecretFile,
-  limitBytes,
-  projectSlug,
-  runCommand,
-  safeRead,
-} from './utils.js';
+import { ensureDir, isBinaryExtension, isPotentialSecretFile, limitBytes, projectSlug } from './utils.js';
 
 const DEFAULT_MAX_CONTEXT_BYTES = 2 * 1024 * 1024; // 2 MB
 
@@ -39,7 +31,13 @@ const MODE_INSTRUCTIONS: Record<string, string> = {
   ].join('\n'),
 };
 
-function buildToolPrompt(tool: string, mode: string, changedFiles: string[]): string {
+function buildToolPrompt(
+  tool: string,
+  mode: string,
+  changedFiles: string[],
+  recallPromptContext?: string,
+  recallSummary?: string,
+): string {
   const modeInstr = MODE_INSTRUCTIONS[mode] ?? MODE_INSTRUCTIONS.review ?? '';
   const fileList = changedFiles
     .slice(0, 30)
@@ -67,6 +65,16 @@ function buildToolPrompt(tool: string, mode: string, changedFiles: string[]): st
     '## Changed Files',
     '',
     fileList + truncNote,
+    ...(recallPromptContext
+      ? [
+          '',
+          '## Recall',
+          '',
+          recallSummary ?? 'Project memory and the latest handoff were attached to this run.',
+          '',
+          recallPromptContext,
+        ]
+      : []),
     '',
     '## Instructions',
     '',
@@ -144,9 +152,11 @@ export async function createContext(options: CreateContextOptions = {}): Promise
     `- **Base ref**: ${baseRef}`,
     `- **Changed files**: ${changedFiles.length}`,
     `- **Copied files**: ${copiedFileCount}`,
+    ...(options.recallSummary ? [`- **Recall**: ${options.recallSummary}`] : []),
     '',
     '## Changed Files',
     changedFiles.map((f) => `- ${f}`).join('\n'),
+    ...(options.recallPromptContext ? ['', '## Recall', options.recallPromptContext] : []),
   ].join('\n');
   await fs.writeFile(contextPath, contextContent, 'utf8');
 
@@ -157,7 +167,13 @@ export async function createContext(options: CreateContextOptions = {}): Promise
   const toolNames = options.tools ?? [...ADAPTER_NAMES];
   const promptPaths = await Promise.all(
     toolNames.map(async (tool) => {
-      const promptContent = buildToolPrompt(tool, mode, changedFiles);
+      const promptContent = buildToolPrompt(
+        tool,
+        mode,
+        changedFiles,
+        options.recallPromptContext,
+        options.recallSummary,
+      );
       const promptPath = path.join(promptDir, `${tool}.md`);
       await fs.writeFile(promptPath, promptContent, 'utf8');
       return promptPath;
