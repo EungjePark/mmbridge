@@ -153,7 +153,7 @@ See [packages/create-adapter](./packages/create-adapter) for the template.
 
 ## Requirements
 
-- Node.js >= 22
+- Node.js >= 22.13.0
 - At least one AI CLI tool installed (kimi, qwen, codex, or gemini)
 
 ## License

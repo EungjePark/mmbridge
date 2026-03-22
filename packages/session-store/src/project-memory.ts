@@ -40,6 +40,17 @@ function toFtsQuery(query: string): string {
   return tokens.join(' ');
 }
 
+function toSearchTerms(query: string): string[] {
+  return query
+    .split(/[^a-zA-Z0-9_]+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function isMissingFtsModule(error: unknown): boolean {
+  return error instanceof Error && /no such module:\s*fts5/i.test(error.message);
+}
+
 function contextDigestFromSession(session: Session): string {
   if (session.contextDigest) return session.contextDigest;
 
@@ -360,17 +371,24 @@ export class ProjectMemoryStore {
           created_at TEXT NOT NULL,
           metadata_json TEXT NOT NULL
         );
-        CREATE VIRTUAL TABLE IF NOT EXISTS memory_entries_fts USING fts5(
-          id UNINDEXED,
-          title,
-          content,
-          tokenize = 'unicode61 remove_diacritics 2'
-        );
         CREATE TABLE IF NOT EXISTS indexed_sessions (
           session_id TEXT PRIMARY KEY,
           indexed_at TEXT NOT NULL
         );
       `);
+      try {
+        db.exec(`
+          CREATE VIRTUAL TABLE IF NOT EXISTS memory_entries_fts USING fts5(
+            id UNINDEXED,
+            title,
+            content,
+            tokenize = 'unicode61 remove_diacritics 2'
+          );
+        `);
+      } catch (error) {
+        if (!isMissingFtsModule(error)) throw error;
+      }
+
       return fn(db, projectKey);
     } finally {
       db.close();
@@ -382,6 +400,11 @@ export class ProjectMemoryStore {
     const sessions = await this.sessionStore.list({ projectDir });
 
     this.withDb(projectDir, (db, projectKey) => {
+      const supportsFts = Boolean(
+        db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'memory_entries_fts' LIMIT 1").get() as
+          | Record<string, unknown>
+          | undefined,
+      );
       const indexedStmt = db.prepare('SELECT 1 FROM indexed_sessions WHERE session_id = ?');
       const insertIndexed = db.prepare(
         'INSERT OR REPLACE INTO indexed_sessions (session_id, indexed_at) VALUES (?, ?)',
@@ -392,8 +415,10 @@ export class ProjectMemoryStore {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const deleteSessionEntries = db.prepare('DELETE FROM memory_entries WHERE session_id = ?');
-      const deleteFts = db.prepare('DELETE FROM memory_entries_fts WHERE id = ?');
-      const insertFts = db.prepare('INSERT INTO memory_entries_fts (id, title, content) VALUES (?, ?, ?)');
+      const deleteFts = supportsFts ? db.prepare('DELETE FROM memory_entries_fts WHERE id = ?') : null;
+      const insertFts = supportsFts
+        ? db.prepare('INSERT INTO memory_entries_fts (id, title, content) VALUES (?, ?, ?)')
+        : null;
 
       for (const session of sessions) {
         const isIndexed = indexedStmt.get(session.id);
@@ -417,8 +442,8 @@ export class ProjectMemoryStore {
             entry.createdAt,
             JSON.stringify(entry.metadata ?? {}),
           );
-          deleteFts.run(entry.id);
-          insertFts.run(entry.id, entry.title, entry.content);
+          deleteFts?.run(entry.id);
+          insertFts?.run(entry.id, entry.title, entry.content);
         }
         insertIndexed.run(session.id, new Date().toISOString());
       }
@@ -633,13 +658,20 @@ export class ProjectMemoryStore {
     ];
 
     this.withDb(projectDir, (db) => {
+      const supportsFts = Boolean(
+        db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'memory_entries_fts' LIMIT 1").get() as
+          | Record<string, unknown>
+          | undefined,
+      );
       const insertEntry = db.prepare(`
         INSERT OR REPLACE INTO memory_entries (
           id, project_key, session_id, handoff_id, type, title, content, file, line, severity, branch, created_at, metadata_json
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      const deleteFts = db.prepare('DELETE FROM memory_entries_fts WHERE id = ?');
-      const insertFts = db.prepare('INSERT INTO memory_entries_fts (id, title, content) VALUES (?, ?, ?)');
+      const deleteFts = supportsFts ? db.prepare('DELETE FROM memory_entries_fts WHERE id = ?') : null;
+      const insertFts = supportsFts
+        ? db.prepare('INSERT INTO memory_entries_fts (id, title, content) VALUES (?, ?, ?)')
+        : null;
       for (const entry of handoffEntries) {
         insertEntry.run(
           entry.id,
@@ -656,8 +688,8 @@ export class ProjectMemoryStore {
           entry.createdAt,
           JSON.stringify(entry.metadata ?? {}),
         );
-        deleteFts.run(entry.id);
-        insertFts.run(entry.id, entry.title, entry.content);
+        deleteFts?.run(entry.id);
+        insertFts?.run(entry.id, entry.title, entry.content);
       }
     });
 
@@ -726,9 +758,16 @@ export class ProjectMemoryStore {
 
     return this.withDb(options.projectDir, (db, projectKey) => {
       const query = toFtsQuery(options.query.trim());
-      const rows = query
-        ? (db
-            .prepare(`
+      const terms = toSearchTerms(options.query.trim());
+      const supportsFts = Boolean(
+        db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'memory_entries_fts' LIMIT 1").get() as
+          | Record<string, unknown>
+          | undefined,
+      );
+      const rows =
+        query && supportsFts
+          ? (db
+              .prepare(`
               SELECT e.*
               FROM memory_entries_fts f
               JOIN memory_entries e ON e.id = f.id
@@ -738,9 +777,29 @@ export class ProjectMemoryStore {
               ORDER BY e.created_at DESC
               LIMIT ?
             `)
-            .all(projectKey, query, type, type, limit) as Array<Record<string, unknown>>)
-        : (db
-            .prepare(`
+              .all(projectKey, query, type, type, limit) as Array<Record<string, unknown>>)
+          : terms.length > 0
+            ? (() => {
+                const clauses = terms.map(() => '(title LIKE ? OR content LIKE ?)').join(' AND ');
+                const params = terms.flatMap((term) => {
+                  const value = `%${term}%`;
+                  return [value, value];
+                });
+
+                return db
+                  .prepare(`
+                  SELECT *
+                  FROM memory_entries
+                  WHERE project_key = ?
+                    AND (? IS NULL OR type = ?)
+                    AND ${clauses}
+                  ORDER BY created_at DESC
+                  LIMIT ?
+                `)
+                  .all(projectKey, type, type, ...params, limit) as Array<Record<string, unknown>>;
+              })()
+            : (db
+                .prepare(`
               SELECT *
               FROM memory_entries
               WHERE project_key = ?
@@ -748,7 +807,7 @@ export class ProjectMemoryStore {
               ORDER BY created_at DESC
               LIMIT ?
             `)
-            .all(projectKey, type, type, limit) as Array<Record<string, unknown>>);
+                .all(projectKey, type, type, limit) as Array<Record<string, unknown>>);
 
       return rows.map(rowToMemoryEntry);
     });

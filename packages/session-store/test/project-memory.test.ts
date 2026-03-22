@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { ProjectMemoryStore, SessionStore } from '../dist/index.js';
 
@@ -250,4 +251,56 @@ test('ProjectMemoryStore timeline query returns contextual session history', asy
   assert.ok(timeline.some((entry) => /retry cap/i.test(entry.content)));
   assert.ok(timeline.some((entry) => /release note/i.test(entry.content) || /follow-up/i.test(entry.content)));
   assert.ok(timeline.every((entry) => entry.sessionId === session.id));
+});
+
+test('ProjectMemoryStore falls back when fts5 is unavailable', { concurrency: false }, async () => {
+  const originalExec = DatabaseSync.prototype.exec;
+  DatabaseSync.prototype.exec = function patchedExec(sql: string): unknown {
+    if (sql.includes('CREATE VIRTUAL TABLE IF NOT EXISTS memory_entries_fts USING fts5')) {
+      throw new Error('no such module: fts5');
+    }
+    return originalExec.call(this, sql);
+  };
+
+  try {
+    const baseDir = await makeTempDir();
+    const projectDir = path.join(baseDir, 'repo');
+    await fs.mkdir(projectDir, { recursive: true });
+
+    const sessionStore = new SessionStore(baseDir);
+    const memoryStore = new ProjectMemoryStore(baseDir);
+    const session = await sessionStore.save({
+      tool: 'codex',
+      mode: 'review',
+      projectDir,
+      workspace: projectDir,
+      summary: 'Validation fallback should still be searchable.',
+      findings: [{ severity: 'WARNING', file: 'src/a.ts', line: 10, message: 'Validation fallback works' }],
+      resultIndex: {
+        summary: '1 finding',
+        parseState: 'raw',
+        findingsTotal: 1,
+        severityCounts: { CRITICAL: 0, WARNING: 1, INFO: 0, REFACTOR: 0 },
+        filesTouched: 1,
+        topFiles: [{ file: 'src/a.ts', count: 1 }],
+        filteredCount: 0,
+        promotedCount: 0,
+        followupSupported: true,
+        outputDigest: null,
+        hasBridge: false,
+        bridgeSummary: null,
+      },
+      followupSupported: true,
+      externalSessionId: 'ext-fallback',
+      status: 'complete',
+    });
+
+    const search = await memoryStore.searchMemory({ projectDir, query: 'validation fallback', limit: 10 });
+    const handoff = await memoryStore.createOrUpdateHandoff(projectDir, session.id, []);
+
+    assert.ok(search.some((entry) => /validation fallback/i.test(entry.content)));
+    assert.equal(handoff.artifact.sessionId, session.id);
+  } finally {
+    DatabaseSync.prototype.exec = originalExec;
+  }
 });

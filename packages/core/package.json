@@ -14,8 +14,8 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --test test/*.test.ts",
-    "test:coverage": "node --test --experimental-test-coverage test/*.test.ts",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "test:coverage": "node --experimental-strip-types --test --experimental-test-coverage test/*.test.ts",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "publishConfig": {
