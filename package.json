@@ -1,6 +1,7 @@
 {
   "name": "mmbridge",
   "version": "0.0.0",
+  "description": "Workspace for the mmbridge multi-model control plane",
   "private": true,
   "type": "module",
   "scripts": {

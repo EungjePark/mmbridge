@@ -1,17 +1,39 @@
 # mmbridge
 
-Multi-model AI code review bridge. Run code reviews across multiple AI tools (Kimi, Qwen, Codex, Gemini) and aggregate findings with consensus-based filtering.
+Multi-model thinking and review control plane for coding agents.
+
+`mmbridge` works alongside tools like Claude Code, Codex CLI, and similar coding agents. Use it to research with multiple models, debate approaches, review implementations, audit security, and continue workflows with memory and handoff context.
 
 ## Features
 
-- **Multi-tool review**: Run reviews with Kimi, Qwen, Codex, or Gemini CLI tools
-- **Finding aggregation**: Bridge mode compares findings across tools, surfaces consensus issues
-- **Finding parser**: Extracts structured findings from raw AI output
-- **Diff overlay**: View git diff annotated with review findings (`mmbridge diff`)
-- **Secret redaction**: Auto-redacts API keys, tokens, passwords from context
-- **Session tracking**: Stores review sessions for follow-up and comparison
-- **Configurable**: `.mmbridge.config.json` for file classifiers, adapter settings, custom rules
-- **Export**: Generate markdown reports (`--export report.md`)
+### Thinking
+
+- **Research**: Compare multiple models on a topic and synthesize the results
+- **Debate**: Run a structured multi-model debate on a proposition
+- **Embrace**: Coordinate research, debate, checkpointing, review, and security in one run
+
+### Review and Audit
+
+- **Review orchestration**: Run reviews across Kimi, Qwen, Codex, Gemini, and other adapters
+- **Security audit**: Execute a security audit workflow with model assistance
+- **Finding aggregation**: Compare findings across tools and surface consensus issues
+- **Diff overlay**: View git diff annotated with review findings using `mmbridge diff`
+
+### Workflow Continuity
+
+- **Review follow-up**: Continue an existing session with targeted prompts
+- **Resume flow**: Pick up the next recommended review action
+- **Gate checks**: See whether the current diff has fresh review coverage
+- **Memory and handoff**: Search project memory and export the latest handoff artifact
+- **Session tracking**: Store review sessions for follow-up and comparison
+
+### Operations
+
+- **Interactive TUI**: Open the terminal control plane with `mmbridge tui`
+- **Finding parser**: Extract structured findings from raw AI output
+- **Secret redaction**: Auto-redact API keys, tokens, and passwords from context
+- **Export**: Generate markdown reports with `--export report.md`
+- **Configuration**: Use `.mmbridge.config.json` for file classifiers, adapters, and custom rules
 
 ## Install
 
@@ -27,36 +49,62 @@ pnpm add -g @mmbridge/cli
 # Initialize config
 mmbridge init
 
-# Run a review with Kimi
-mmbridge review --tool kimi
+# Research an approach across models
+mmbridge research "compare rollout strategies for mmbridge control-plane messaging"
 
-# Run with Qwen and export report
-mmbridge review --tool qwen --export review.md
+# Run a bridge-backed review
+mmbridge review --tool all --bridge standard
 
 # View diff with annotated findings
 mmbridge diff
 
-# Follow up on a review
-mmbridge followup --tool kimi --prompt "explain the CRITICAL finding in detail"
+# Check whether the current diff has fresh review coverage
+mmbridge gate
 
-# Check environment
-mmbridge doctor
+# Continue the review workflow with the recommended next action
+mmbridge resume
 
-# Bridge mode: aggregate multiple reviews
-mmbridge review --tool kimi --bridge standard
+# Run a security audit
+mmbridge security --tool all --bridge standard
 ```
 
 ## Commands
 
+### Thinking
+
 | Command | Description |
 |---------|-------------|
-| `mmbridge review` | Run code review with specified AI tool |
-| `mmbridge diff` | Show git diff annotated with review findings |
-| `mmbridge followup` | Send follow-up prompt to existing session |
-| `mmbridge dashboard` | Open TUI dashboard for session history |
-| `mmbridge doctor` | Check environment and binary installation |
+| `mmbridge research` | Research a topic using multiple AI models |
+| `mmbridge debate` | Run a multi-model debate on a proposition |
+| `mmbridge embrace` | Orchestrate research, debate, checkpointing, review, and security |
+
+### Review and Audit
+
+| Command | Description |
+|---------|-------------|
+| `mmbridge review` | Run a multi-model review for a change or commit |
+| `mmbridge security` | Run a security audit workflow with model assistance |
+| `mmbridge diff` | Show a git diff annotated with review findings |
+
+### Workflow Continuity
+
+| Command | Description |
+|---------|-------------|
+| `mmbridge followup` | Send a follow-up prompt to an existing session |
+| `mmbridge resume` | Continue the review workflow with a recommended next action |
+| `mmbridge gate` | Check whether the current diff has fresh review coverage |
+| `mmbridge handoff` | Inspect or export the latest session handoff artifact |
+| `mmbridge memory` | Search and inspect project memory |
+
+### Operations
+
+| Command | Description |
+|---------|-------------|
+| `mmbridge tui` | Open the interactive TUI control plane |
+| `mmbridge doctor` | Inspect local tooling and binary installation |
 | `mmbridge init` | Initialize project config interactively |
-| `mmbridge sync-agents` | Sync agent definitions to Claude agents dir |
+| `mmbridge sync-agents` | Sync agent definitions to Claude Code |
+| `mmbridge hook` | Manage Claude Code hooks |
 
 ## Configuration
 
@@ -95,16 +143,17 @@ See [packages/create-adapter](./packages/create-adapter) for the template.
 | Package | Description |
 |---------|-------------|
 | `@mmbridge/cli` | CLI entry point and commands |
-| `@mmbridge/core` | Context creation, finding pipeline, bridge logic |
-| `@mmbridge/adapters` | Built-in AI tool adapters + registry |
-| `@mmbridge/session-store` | Local session persistence |
-| `@mmbridge/integrations` | Agent sync utilities |
-| `@mmbridge/tui` | Terminal UI rendering |
-| `@mmbridge/create-adapter` | Scaffold new adapters |
+| `@mmbridge/core` | Context creation, finding pipeline, and orchestration logic |
+| `@mmbridge/adapters` | Built-in AI tool adapters and registry |
+| `@mmbridge/session-store` | Local session persistence and memory storage |
+| `@mmbridge/integrations` | Claude Code integration and agent sync utilities |
+| `@mmbridge/tui` | Terminal UI rendering for the control plane |
+| `@mmbridge/mcp` | MCP server exposing mmbridge control-plane tools |
+| `@mmbridge/create-adapter` | Scaffold new adapters from the template |
 
 ## Requirements
 
-- Node.js >= 20
+- Node.js >= 22
 - At least one AI CLI tool installed (kimi, qwen, codex, or gemini)
 
 ## License

@@ -1,6 +1,7 @@
 {
   "name": "@mmbridge/cli",
   "version": "0.6.2",
+  "description": "Command-line control plane for multi-model review and coordination",
   "type": "module",
   "bin": {
     "mmbridge": "dist/bin/mmbridge.js"
@@ -13,9 +14,10 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "node --test test/*.test.ts",

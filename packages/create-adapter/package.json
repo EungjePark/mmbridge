@@ -1,6 +1,7 @@
 {
   "name": "@mmbridge/create-adapter",
   "version": "0.6.0",
+  "description": "Scaffold new mmbridge adapters from the template",
   "type": "module",
   "bin": {
     "create-mmbridge-adapter": "dist/index.js"

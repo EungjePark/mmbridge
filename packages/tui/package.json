@@ -1,6 +1,7 @@
 {
   "name": "@mmbridge/tui",
   "version": "0.6.2",
+  "description": "Terminal UI rendering for the mmbridge control plane",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,9 +11,7 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "node --test test/*.test.ts",

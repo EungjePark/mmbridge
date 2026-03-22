@@ -77,7 +77,7 @@ export async function main(): Promise<void> {
 
   program
     .name('mmbridge')
-    .description('Multi-model code review bridge')
+    .description('Multi-model thinking and review control plane for coding agents')
     .version(pkg.version)
     .action(async () => {
       await runTuiOrFallback(program);
@@ -86,7 +86,7 @@ export async function main(): Promise<void> {
   // ── review ──
   program
     .command('review')
-    .description('Run a code review with the specified AI tool')
+    .description('Run a multi-model review for a change or commit')
     .option('-t, --tool <tool>', 'AI tool to use (kimi|qwen|codex|gemini|droid|claude|all)', 'kimi')
     .option('-m, --mode <mode>', 'Review mode (review|security|architecture)', 'review')
     .option('--bridge <profile>', 'Bridge aggregation profile')
@@ -104,7 +104,7 @@ export async function main(): Promise<void> {
   // ── followup ──
   program
     .command('followup')
-    .description('Send a follow-up prompt to an existing review session')
+    .description('Send a follow-up prompt to an existing session')
     .requiredOption('-t, --tool <tool>', 'AI tool that ran the original review')
     .requiredOption('--prompt <text>', 'Follow-up prompt to send')
     .option('--session <id>', 'External session ID (overrides stored session)')
@@ -135,7 +135,7 @@ export async function main(): Promise<void> {
   // ── resume ──
   program
     .command('resume')
-    .description('Continue the latest review workflow with a recommended next action')
+    .description('Continue the review workflow with a recommended next action')
     .option('-p, --project <dir>', 'Project directory (default: cwd)')
     .option('--session <id>', 'Specific local session ID')
     .option('--action <action>', 'Action to run (followup|rerun|bridge-rerun)')
@@ -149,7 +149,7 @@ export async function main(): Promise<void> {
   // ── doctor ──
   program
     .command('doctor')
-    .description('Check environment and binary installation')
+    .description('Inspect local tooling and binary installation')
     .option('--json', 'Output JSON instead of TUI')
     .option('--setup', 'Show the interactive setup wizard')
     .action(async (opts: DoctorOptions) => {
@@ -160,7 +160,7 @@ export async function main(): Promise<void> {
   // ── gate ──
   program
     .command('gate')
-    .description('Evaluate whether the current diff has fresh review coverage')
+    .description('Check whether the current diff has fresh review coverage')
     .option('-p, --project <dir>', 'Project directory (default: cwd)')
     .option('--base-ref <ref>', 'Git base ref for diff')
     .option('-m, --mode <mode>', 'Review mode to evaluate (review|security|architecture)')
@@ -173,7 +173,7 @@ export async function main(): Promise<void> {
   // ── handoff ──
   program
     .command('handoff')
-    .description('Show or export the latest session handoff artifact for this project')
+    .description('Inspect or export the latest session handoff artifact')
     .option('--session <id>', 'Specific local session ID')
     .option('-p, --project <dir>', 'Project directory (default: cwd)')
     .option('--write <path>', 'Copy the markdown handoff artifact to a path')
@@ -225,7 +225,7 @@ export async function main(): Promise<void> {
   // ── sync-agents ──
   program
     .command('sync-agents')
-    .description('Sync agent definitions to Claude agents directory')
+    .description('Sync agent definitions to Claude Code')
     .option('--dry-run', 'Preview changes without writing files')
     .action(async (opts: SyncAgentsOptions) => {
       const { runSyncAgentsCommand } = await import('./commands/sync-agents.js');
@@ -235,7 +235,7 @@ export async function main(): Promise<void> {
   // ── init ──
   program
     .command('init')
-    .description('Initialize mmbridge config for a project')
+    .description('Initialize project config interactively')
     .option('-p, --project <dir>', 'Project directory (default: cwd)')
     .option('-y, --yes', 'Skip prompts and use detected defaults')
     .action(async (opts: InitCommandOptions) => {
@@ -246,7 +246,7 @@ export async function main(): Promise<void> {
   // ── tui ──
   program
     .command('tui')
-    .description('Open the interactive TUI hub')
+    .description('Open the interactive TUI control plane')
     .option('--tab <tab>', 'Open directly to a tab (dashboard|sessions|config)')
     .action(async (opts: { tab?: string }) => {
       await runTuiOrFallback(program, {
@@ -257,7 +257,7 @@ export async function main(): Promise<void> {
   // ── diff ──
   program
     .command('diff')
-    .description('Show git diff annotated with review findings')
+    .description('Show a git diff annotated with review findings')
     .option('-t, --tool <tool>', 'Filter findings by tool')
     .option('--base-ref <ref>', 'Git base ref for diff')
     .option('-p, --project <dir>', 'Project directory (default: cwd)')
@@ -270,7 +270,7 @@ export async function main(): Promise<void> {
   // ── research ──
   program
     .command('research <topic>')
-    .description('Research a topic using multiple AI models with insight synthesis')
+    .description('Research a topic using multiple AI models')
     .option('-t, --type <type>', 'Research type (code-aware|open)', 'open')
     .option('--tool <tools>', 'Comma-separated tools (default: all installed)')
     .option('-p, --project <dir>', 'Project directory (default: cwd)')
@@ -284,7 +284,7 @@ export async function main(): Promise<void> {
   // ── debate ──
   program
     .command('debate <proposition>')
-    .description('Multi-round debate between AI models on a proposition')
+    .description('Run a multi-model debate on a proposition')
     .option('-r, --rounds <n>', 'Number of debate rounds', '3')
     .option('--teams <spec>', 'Team assignment "for_tools:against_tools"')
     .option('--tool <tools>', 'Comma-separated tools (default: all installed)')
@@ -299,7 +299,7 @@ export async function main(): Promise<void> {
   // ── security ──
   program
     .command('security')
-    .description('Run a comprehensive security audit with CWE classification')
+    .description('Run a security audit workflow with model assistance')
     .option('--scope <scope>', 'Audit scope (auth|api|infra|all)', 'all')
     .option('--tool <tools>', 'Comma-separated tools (default: all installed)')
     .option('--compliance <list>', 'Compliance frameworks (GDPR,SOC2,HIPAA,PCI-DSS)')
@@ -316,7 +316,7 @@ export async function main(): Promise<void> {
   // ── embrace ──
   program
     .command('embrace <task>')
-    .description('Full lifecycle orchestrator: research → debate → checkpoint → review → security')
+    .description('Orchestrate research, debate, checkpointing, review, and security')
     .option('--resume [id]', 'Resume a paused embrace run')
     .option('--resolve <text>', 'Resolve a checkpoint with this response')
     .option('--skip-phases <phases>', 'Comma-separated phases to skip')
