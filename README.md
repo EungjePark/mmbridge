@@ -26,7 +26,7 @@ See [VISION.md](./VISION.md) for the external product vision and [docs/vision/co
 - **Review follow-up**: Continue an existing session with targeted prompts
 - **Resume flow**: Pick up the next recommended review action
 - **Gate checks**: See whether the current diff has fresh review coverage
-- **Memory and handoff**: Search project memory and export the latest handoff artifact
+- **Memory and handoff**: Search project memory, follow review families across follow-up chains, and export the latest handoff artifact
 - **Session tracking**: Store review sessions for follow-up and comparison
 
 ### Operations

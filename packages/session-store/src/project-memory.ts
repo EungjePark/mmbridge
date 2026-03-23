@@ -813,23 +813,35 @@ export class ProjectMemoryStore {
     });
   }
 
+  private async resolveFamilySessionIds(projectDir: string, sessionIds: string[]): Promise<string[]> {
+    const normalized = Array.from(new Set(sessionIds.filter(Boolean)));
+    if (normalized.length === 0) return [];
+
+    const families = await Promise.all(normalized.map((sessionId) => this.sessionStore.getFamily(projectDir, sessionId)));
+    return Array.from(new Set(families.flat().map((session) => session.id)));
+  }
+
   async timelineMemory(options: MemoryTimelineOptions): Promise<MemoryEntry[]> {
     await this.backfillProject(options.projectDir);
     const limit = options.limit ?? 12;
     if (options.sessionId) {
+      const familySessionIds = await this.resolveFamilySessionIds(options.projectDir, [options.sessionId]);
+      if (familySessionIds.length === 0) return [];
+
       return this.withDb(options.projectDir, (db, projectKey) => {
+        const placeholders = familySessionIds.map(() => '?').join(', ');
         const rows = db
           .prepare(`
             SELECT *
             FROM memory_entries
             WHERE project_key = ?
-              AND session_id = ?
+              AND session_id IN (${placeholders})
             ORDER BY created_at DESC
             LIMIT ?
           `)
-          .all(projectKey, options.sessionId ?? null, limit) as Array<Record<string, unknown>>;
+          .all(projectKey, ...familySessionIds, limit * 3) as Array<Record<string, unknown>>;
         return rows.map(rowToMemoryEntry);
-      });
+      }).slice(0, limit);
     }
 
     if (!options.query?.trim()) {
@@ -845,9 +857,10 @@ export class ProjectMemoryStore {
       query: options.query,
       limit: Math.min(limit, 6),
     });
-    const sessionIds = Array.from(
+    const directSessionIds = Array.from(
       new Set(hits.map((entry) => entry.sessionId).filter((id): id is string => Boolean(id))),
     );
+    const sessionIds = await this.resolveFamilySessionIds(options.projectDir, directSessionIds);
     if (sessionIds.length === 0) {
       return hits;
     }

@@ -253,6 +253,153 @@ test('ProjectMemoryStore timeline query returns contextual session history', asy
   assert.ok(timeline.every((entry) => entry.sessionId === session.id));
 });
 
+test('ProjectMemoryStore timeline expands to related followup family for pinned session recall', async () => {
+  const baseDir = await makeTempDir();
+  const projectDir = path.join(baseDir, 'repo');
+  await fs.mkdir(projectDir, { recursive: true });
+
+  const sessionStore = new SessionStore(baseDir);
+  const memoryStore = new ProjectMemoryStore(baseDir);
+
+  const review = await sessionStore.save({
+    tool: 'codex',
+    mode: 'review',
+    projectDir,
+    workspace: projectDir,
+    summary: 'Base review identified the auth fallback bug.',
+    findings: [{ severity: 'WARNING', file: 'src/auth.ts', line: 12, message: 'Auth fallback bug' }],
+    resultIndex: {
+      summary: '1 finding',
+      parseState: 'raw',
+      findingsTotal: 1,
+      severityCounts: { CRITICAL: 0, WARNING: 1, INFO: 0, REFACTOR: 0 },
+      filesTouched: 1,
+      topFiles: [{ file: 'src/auth.ts', count: 1 }],
+      filteredCount: 0,
+      promotedCount: 0,
+      followupSupported: true,
+      outputDigest: null,
+      hasBridge: false,
+      bridgeSummary: null,
+    },
+    followupSupported: true,
+    status: 'complete',
+  });
+
+  await sessionStore.save({
+    tool: 'codex',
+    mode: 'followup',
+    projectDir,
+    workspace: projectDir,
+    parentSessionId: review.id,
+    summary: 'Follow-up confirmed the retry path and narrowed the fix.',
+    findings: [],
+    interpretation: {
+      validated: [],
+      falsePositives: [],
+      promoted: [],
+      actionPlan: 'TODO tighten the auth retry guard',
+      interpreterTool: 'codex',
+    },
+    resultIndex: {
+      summary: 'no findings',
+      parseState: 'raw',
+      findingsTotal: 0,
+      severityCounts: { CRITICAL: 0, WARNING: 0, INFO: 0, REFACTOR: 0 },
+      filesTouched: 0,
+      topFiles: [],
+      filteredCount: 0,
+      promotedCount: 0,
+      followupSupported: true,
+      outputDigest: null,
+      hasBridge: false,
+      bridgeSummary: null,
+    },
+    followupSupported: true,
+    status: 'complete',
+  });
+
+  const timeline = await memoryStore.timelineMemory({ projectDir, sessionId: review.id, limit: 8 });
+
+  assert.ok(timeline.some((entry) => /auth fallback bug/i.test(entry.content)));
+  assert.ok(timeline.some((entry) => /tighten the auth retry guard/i.test(entry.content)));
+  assert.ok(
+    new Set(timeline.map((entry) => entry.sessionId).filter((value): value is string => Boolean(value))).size >= 2,
+  );
+});
+
+test('ProjectMemoryStore query timeline expands contextual history across a review family', async () => {
+  const baseDir = await makeTempDir();
+  const projectDir = path.join(baseDir, 'repo');
+  await fs.mkdir(projectDir, { recursive: true });
+
+  const sessionStore = new SessionStore(baseDir);
+  const memoryStore = new ProjectMemoryStore(baseDir);
+
+  const review = await sessionStore.save({
+    tool: 'codex',
+    mode: 'review',
+    projectDir,
+    workspace: projectDir,
+    summary: 'Billing retry review found a missing release note update.',
+    findings: [{ severity: 'WARNING', file: 'src/billing.ts', line: 9, message: 'Missing release note update' }],
+    resultIndex: {
+      summary: '1 finding',
+      parseState: 'raw',
+      findingsTotal: 1,
+      severityCounts: { CRITICAL: 0, WARNING: 1, INFO: 0, REFACTOR: 0 },
+      filesTouched: 1,
+      topFiles: [{ file: 'src/billing.ts', count: 1 }],
+      filteredCount: 0,
+      promotedCount: 0,
+      followupSupported: true,
+      outputDigest: null,
+      hasBridge: false,
+      bridgeSummary: null,
+    },
+    followupSupported: true,
+    status: 'complete',
+  });
+
+  await sessionStore.save({
+    tool: 'codex',
+    mode: 'followup',
+    projectDir,
+    workspace: projectDir,
+    parentSessionId: review.id,
+    summary: 'Follow-up added a retry cap and queued release note wording.',
+    findings: [],
+    interpretation: {
+      validated: [],
+      falsePositives: [],
+      promoted: [],
+      actionPlan: 'TODO document retry cap in release note',
+      interpreterTool: 'codex',
+    },
+    resultIndex: {
+      summary: 'no findings',
+      parseState: 'raw',
+      findingsTotal: 0,
+      severityCounts: { CRITICAL: 0, WARNING: 0, INFO: 0, REFACTOR: 0 },
+      filesTouched: 0,
+      topFiles: [],
+      filteredCount: 0,
+      promotedCount: 0,
+      followupSupported: true,
+      outputDigest: null,
+      hasBridge: false,
+      bridgeSummary: null,
+    },
+    followupSupported: true,
+    status: 'complete',
+  });
+
+  const timeline = await memoryStore.timelineMemory({ projectDir, query: 'retry cap', limit: 8 });
+
+  assert.ok(timeline.some((entry) => /retry cap/i.test(entry.content)));
+  assert.ok(timeline.some((entry) => /missing release note update/i.test(entry.content)));
+});
+
 test('ProjectMemoryStore falls back when fts5 is unavailable', { concurrency: false }, async () => {
   const originalExec = DatabaseSync.prototype.exec;
   DatabaseSync.prototype.exec = function patchedExec(sql: string): unknown {

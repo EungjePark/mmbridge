@@ -130,6 +130,38 @@ export class SessionStore {
     }
   }
 
+  async getFamily(projectDir: string, sessionId: string): Promise<Session[]> {
+    assertValidId(sessionId);
+    const sessions = await this.list({ projectDir });
+    const byId = new Map(sessions.map((session) => [session.id, session]));
+    const root = byId.get(sessionId);
+    if (!root) return [];
+
+    const family = new Map<string, Session>();
+    const stack: string[] = [sessionId];
+
+    while (stack.length > 0) {
+      const currentId = stack.pop();
+      if (!currentId || family.has(currentId)) continue;
+
+      const current = byId.get(currentId);
+      if (!current) continue;
+      family.set(currentId, current);
+
+      if (current.parentSessionId && byId.has(current.parentSessionId)) {
+        stack.push(current.parentSessionId);
+      }
+
+      for (const candidate of sessions) {
+        if (candidate.parentSessionId === currentId && !family.has(candidate.id)) {
+          stack.push(candidate.id);
+        }
+      }
+    }
+
+    return Array.from(family.values()).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }
+
   private filePath(id: string): string {
     return path.join(this.sessionsDir, `${id}.json`);
   }
