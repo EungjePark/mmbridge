@@ -119,3 +119,8 @@ When reviewing work on `mmbridge`, ask:
 - Does it move the system toward a stronger control plane without premature runtime sprawl?
 
 If the answer is no, push back.
+
+## Related Documents
+
+- [VISION.md](../../VISION.md)
+- [Roadmap](./roadmap.md)

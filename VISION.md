@@ -89,3 +89,5 @@ External positioning:
 Expanded positioning:
 
 `mmbridge` works alongside coding assistants like Claude Code and Codex CLI to widen model perspective, validate work, and continue workflows with memory and handoff context.
+
+For internal direction, see [docs/vision/coding-assistant-operating-model.md](./docs/vision/coding-assistant-operating-model.md) and [docs/vision/roadmap.md](./docs/vision/roadmap.md).
