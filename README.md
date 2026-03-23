@@ -4,6 +4,8 @@ Multi-model thinking and review control plane for coding agents.
 
 `mmbridge` works alongside tools like Claude Code, Codex CLI, and similar coding agents. Use it to research with multiple models, debate approaches, review implementations, audit security, and continue workflows with memory and handoff context.
 
+See [VISION.md](./VISION.md) for the external product vision and [docs/vision/coding-assistant-operating-model.md](./docs/vision/coding-assistant-operating-model.md) for the internal operating model aimed at coding assistants and maintainers.
+
 ## Features
 
 ### Thinking
