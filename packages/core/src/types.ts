@@ -1,7 +1,7 @@
 export type Severity = 'CRITICAL' | 'WARNING' | 'INFO' | 'REFACTOR';
 
 /** Canonical tool list — single source of truth across all packages */
-export const ADAPTER_NAMES = ['kimi', 'qwen', 'codex', 'gemini', 'droid', 'claude'] as const;
+export const ADAPTER_NAMES = ['kimi', 'qwen', 'codex', 'gemini', 'droid', 'claude', 'pi'] as const;
 export type AdapterName = (typeof ADAPTER_NAMES)[number];
 
 export interface Finding {

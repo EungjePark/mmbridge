@@ -3,6 +3,7 @@ import { codexAdapter } from './codex.js';
 import { droidAdapter } from './droid.js';
 import { geminiAdapter } from './gemini.js';
 import { kimiAdapter } from './kimi.js';
+import { piAdapter } from './pi.js';
 import { qwenAdapter } from './qwen.js';
 import { AdapterRegistry } from './registry.js';
 import type { AdapterDefinition, AdapterResult, FollowupOptions, ReviewOptions } from './types.js';
@@ -12,7 +13,7 @@ export type { AdapterDefinition } from './types.js';
 export { AdapterRegistry } from './registry.js';
 
 const defaultRegistry = new AdapterRegistry();
-const builtinAdapters = [kimiAdapter, qwenAdapter, codexAdapter, geminiAdapter, droidAdapter, claudeAdapter];
+const builtinAdapters = [kimiAdapter, piAdapter, qwenAdapter, codexAdapter, geminiAdapter, droidAdapter, claudeAdapter];
 
 function seedBuiltinAdapters(): void {
   defaultRegistry.clear();

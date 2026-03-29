@@ -93,7 +93,7 @@ export async function main(): Promise<void> {
   program
     .command('review')
     .description('Run a multi-model review for a change or commit')
-    .option('-t, --tool <tool>', 'AI tool to use (kimi|qwen|codex|gemini|droid|claude|all)', 'kimi')
+    .option('-t, --tool <tool>', 'AI tool to use (kimi|qwen|codex|gemini|droid|claude|pi|all)', 'kimi')
     .option('-m, --mode <mode>', 'Review mode (review|security|architecture)', 'review')
     .option('--bridge <profile>', 'Bridge aggregation profile')
     .option('--base-ref <ref>', 'Git base ref for diff (default: HEAD~1)')
