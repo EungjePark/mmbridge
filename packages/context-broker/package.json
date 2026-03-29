@@ -1,0 +1,27 @@
+{
+  "name": "@mmbridge/context-broker",
+  "version": "0.6.3",
+  "description": "Context brokering layer for mmbridge — session tree, recall engine, and context packet assembly",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@mmbridge/core": "workspace:*",
+    "@mmbridge/session-store": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

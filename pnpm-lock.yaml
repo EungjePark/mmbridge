@@ -54,6 +54,15 @@ importers:
         specifier: ^13.1.0
         version: 13.1.0
 
+  packages/context-broker:
+    dependencies:
+      '@mmbridge/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mmbridge/session-store':
+        specifier: workspace:*
+        version: link:../session-store
+
   packages/core: {}
 
   packages/create-adapter: {}

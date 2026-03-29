@@ -8,6 +8,7 @@
     { "path": "packages/tui" },
     { "path": "packages/cli" },
     { "path": "packages/create-adapter" },
-    { "path": "packages/mcp" }
+    { "path": "packages/mcp" },
+    { "path": "packages/context-broker" }
   ]
 }
