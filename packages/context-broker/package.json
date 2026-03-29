@@ -1,6 +1,6 @@
 {
   "name": "@mmbridge/context-broker",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "Context brokering layer for mmbridge — session tree, recall engine, and context packet assembly",
   "type": "module",
   "main": "dist/index.js",
@@ -11,7 +11,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "node --experimental-strip-types --test test/*.test.ts",

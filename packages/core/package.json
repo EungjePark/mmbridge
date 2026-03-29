@@ -1,6 +1,6 @@
 {
   "name": "@mmbridge/core",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "Core pipelines, orchestration, and shared models for mmbridge",
   "type": "module",
   "main": "dist/index.js",
@@ -11,7 +11,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "node --experimental-strip-types --test test/*.test.ts",
