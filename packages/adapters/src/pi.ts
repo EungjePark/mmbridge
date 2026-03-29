@@ -19,7 +19,7 @@ export async function runPiReview({
   onStderr,
 }: {
   workspace: string;
-  sessionId?: string;
+  _sessionId?: string;
   onStdout?: (chunk: string) => void;
   onStderr?: (chunk: string) => void;
 }): Promise<AdapterResult> {

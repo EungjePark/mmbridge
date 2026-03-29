@@ -163,6 +163,20 @@ export class ContextTree {
     return nodes;
   }
 
+  /**
+   * Remove nodes by ID from a project's JSONL file.
+   * Rewrites the file excluding nodes whose IDs are in the given set.
+   */
+  async removeNodes(projectKey: string, ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    const allNodes = await this.loadAll(projectKey);
+    const remaining = allNodes.filter((n) => !idSet.has(n.id));
+    const fp = this.filePath(projectKey);
+    const content = remaining.map((n) => JSON.stringify(n)).join('\n') + (remaining.length > 0 ? '\n' : '');
+    await fs.writeFile(fp, content, 'utf8');
+  }
+
   private filePath(projectKey: string): string {
     // Sanitize key to prevent path traversal
     const safe = projectKey.replace(/[^a-zA-Z0-9_-]/g, '_');

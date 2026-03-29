@@ -37,6 +37,7 @@ interface RecallResult {
   recalledSessions: RecallEntry[];
   recalledHandoffs: RecallEntry[];
   recalledMemory: RecallEntry[];
+  recalledTree: RecallEntry[];
   totalRecallTokens: number;
 }
 
@@ -120,6 +121,7 @@ export class RecallEngine {
     const recalledMemory = ranked.filter((e) => e.source === 'memory');
     const recalledSessions = ranked.filter((e) => e.source === 'session');
     const recalledHandoffs = ranked.filter((e) => e.source === 'handoff');
+    const recalledTree = ranked.filter((e) => e.source === 'tree');
 
     const totalRecallTokens =
       alwaysOnTokens +
@@ -130,6 +132,7 @@ export class RecallEngine {
       recalledSessions,
       recalledHandoffs,
       recalledMemory,
+      recalledTree,
       totalRecallTokens,
     };
   }
@@ -281,7 +284,7 @@ export class RecallEngine {
       let branchNodeIds: Set<string> | null = null;
       if (leafId) {
         try {
-          const pathNodes = await this.contextTree.getPath(leafId);
+          const pathNodes = await this.contextTree.getPath(leafId, projectKey);
           branchNodeIds = new Set(pathNodes.map((n) => n.id));
         } catch {
           branchNodeIds = null;

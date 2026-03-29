@@ -103,7 +103,8 @@ export class ContextAssembler {
         const entryCount =
           recall.recalledSessions.length +
           recall.recalledHandoffs.length +
-          recall.recalledMemory.length;
+          recall.recalledMemory.length +
+          recall.recalledTree.length;
         await this.eventBus.emit('on_recall', {
           budget: recallBudget ?? 2000,
           totalTokens: recall.totalRecallTokens,
@@ -141,6 +142,7 @@ export class ContextAssembler {
       recalledSessions: recall.recalledSessions,
       recalledHandoffs: recall.recalledHandoffs,
       recalledMemory: recall.recalledMemory,
+      recalledTree: recall.recalledTree,
       totalRecallTokens: recall.totalRecallTokens,
       recallBudget: recallBudget ?? 2000,
       gateWarnings,
@@ -335,7 +337,7 @@ export class ContextAssembler {
     if (commandLower.includes('embrace')) {
       return ['claude', 'codex', 'gemini'];
     }
-    if (commandLower.includes('--tool all') || commandLower.includes('bridge')) {
+    if (commandLower.includes('--tool all') || /\bbridge\b/.test(commandLower)) {
       return ['claude', 'codex', 'gemini'];
     }
     if (commandLower.includes('--tool claude')) {

@@ -40,6 +40,7 @@ export interface ContextPacket {
   recalledSessions: RecallEntry[];
   recalledHandoffs: RecallEntry[];
   recalledMemory: RecallEntry[];
+  recalledTree: RecallEntry[];
   totalRecallTokens: number;
   recallBudget: number;
   gateWarnings: string[];

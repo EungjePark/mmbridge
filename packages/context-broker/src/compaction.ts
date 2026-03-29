@@ -131,6 +131,11 @@ export async function autoCompact(
       });
       if (result) {
         results.push(result);
+        // Remove the original compacted nodes from the JSONL file
+        const compactedIds = (result.data as { compactedIds?: string[] }).compactedIds;
+        if (compactedIds && compactedIds.length > 0) {
+          await tree.removeNodes(projectKey, compactedIds);
+        }
       }
     }
 
