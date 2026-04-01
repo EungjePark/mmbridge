@@ -99,7 +99,7 @@ export async function startOAuthFlow(
     client_id: getClientId(provider),
     redirect_uri: redirectUri,
     scope: provider === 'anthropic'
-      ? 'user:inference user:profile org:create_api_key'
+      ? 'user:inference user:profile org:create_api_key user:sessions:claude_code user:mcp_servers user:file_upload'
       : 'openid profile email offline_access',
     state,
     code_challenge: codeChallenge,
