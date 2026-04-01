@@ -123,8 +123,8 @@ export async function runSetup(): Promise<void> {
         await doOAuth(provider.key);
       }
     } else {
-      // OAuth directly — no menu
-      await doOAuth(provider.key);
+      // Use claude setup-token for long-lived OAuth (like Hermes)
+      await doClaudeSetupToken(store);
     }
   } else {
     // API key providers
@@ -186,6 +186,75 @@ async function doApiKey(store: AuthStore, provider: string): Promise<void> {
   }
   await store.setApiKey(provider, key);
   process.stdout.write(`${green('✓')} API key for ${provider} saved.\n`);
+}
+
+async function doClaudeSetupToken(store: AuthStore): Promise<void> {
+  process.stdout.write(`\n${bold('Authenticating via Claude Code...')}\n\n`);
+
+  // Check if claude CLI is available
+  const { execSync, spawn } = await import('node:child_process');
+  try {
+    execSync('which claude', { stdio: 'ignore' });
+  } catch {
+    process.stdout.write(`${yellow('!')} Claude CLI not found. Install it first: ${cyan('npm install -g @anthropic-ai/claude-code')}\n`);
+    process.stdout.write('Falling back to API key entry.\n');
+    await doApiKey(store, 'anthropic');
+    return;
+  }
+
+  // Run claude setup-token — it handles the OAuth flow interactively
+  process.stdout.write(`Running ${cyan('claude setup-token')}...\n`);
+  process.stdout.write(`${dim('A browser window will open. Authorize access, then the token will be saved.')}\n\n`);
+
+  try {
+    const child = spawn('claude', ['setup-token'], {
+      stdio: 'inherit',  // Pass through stdin/stdout for interactive flow
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      child.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`claude setup-token exited with code ${code}`));
+      });
+      child.on('error', reject);
+    });
+
+    // After setup-token, read the token from Claude Code's keychain
+    try {
+      const raw = execSync(
+        'security find-generic-password -s "Claude Code-credentials" -w',
+        { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
+      ).trim();
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const oauth = parsed['claudeAiOauth'] as Record<string, unknown> | undefined;
+      const token = oauth?.['accessToken'];
+      if (typeof token === 'string') {
+        await store.setToken('anthropic', { accessToken: token });
+        process.stdout.write(`\n${green('✓')} Anthropic OAuth token saved to mmbridge.\n`);
+        return;
+      }
+    } catch { /* fall through */ }
+
+    // Fallback: check CLAUDE_CODE_OAUTH_TOKEN env
+    const envToken = process.env['CLAUDE_CODE_OAUTH_TOKEN'];
+    if (envToken) {
+      await store.setToken('anthropic', { accessToken: envToken });
+      process.stdout.write(`\n${green('✓')} OAuth token saved from CLAUDE_CODE_OAUTH_TOKEN.\n`);
+      return;
+    }
+
+    process.stdout.write(`${yellow('!')} Could not auto-detect token. Paste it manually:\n`);
+    const token = await askSecret('OAuth token: ');
+    if (token) {
+      await store.setToken('anthropic', { accessToken: token });
+      process.stdout.write(`${green('✓')} OAuth token saved.\n`);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stdout.write(`${yellow('!')} claude setup-token failed: ${msg}\n`);
+    process.stdout.write('Falling back to API key entry.\n');
+    await doApiKey(store, 'anthropic');
+  }
 }
 
 async function doPasteAuth(store: AuthStore, provider: string): Promise<void> {
