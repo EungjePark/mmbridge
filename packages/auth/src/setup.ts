@@ -174,6 +174,7 @@ export async function runSetup(): Promise<void> {
   process.stdout.write(`  Model:     ${green(modelKey)}\n`);
   process.stdout.write(`  Config:    ${dim('~/.mmbridge/auth.json')}\n`);
   process.stdout.write(`\n  Run ${cyan('mmbridge')} to start a conversation.\n\n`);
+  await ask('Press Enter to continue...');
 }
 
 async function doOAuth(provider: string): Promise<void> {

@@ -27,9 +27,11 @@ export class AgentLoop {
 
   constructor(config: AgentConfig) {
     this.config = config;
-    this.client = new Anthropic({
-      apiKey: config.apiKey ?? process.env['ANTHROPIC_API_KEY'],
-    });
+    const key = config.apiKey ?? process.env['ANTHROPIC_API_KEY'] ?? '';
+    const isOAuthToken = key.startsWith('sk-ant-oat');
+    this.client = isOAuthToken
+      ? new Anthropic({ authToken: key, apiKey: undefined })
+      : new Anthropic({ apiKey: key });
     this.registry = new ToolRegistry();
     for (const tool of config.tools) {
       this.registry.register(tool);
