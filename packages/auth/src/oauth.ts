@@ -8,9 +8,9 @@ import {
 } from './oauth-helpers.js';
 import type { AuthProvider, ProviderTokens } from './types.js';
 
-// Real OAuth endpoints (from Claude Code source)
+// Claude AI subscriber OAuth (grants user:inference scope)
 const PROVIDER_AUTH_URLS: Record<string, string> = {
-  anthropic: 'https://platform.claude.com/oauth/authorize',
+  anthropic: 'https://claude.com/cai/oauth/authorize',
   openai: 'https://auth.openai.com/authorize',
 };
 
