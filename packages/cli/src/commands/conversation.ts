@@ -71,7 +71,8 @@ export async function runConversation(options: ConversationOptions): Promise<voi
   const claudeCodeToken = await getClaudeCodeToken();
   const apiKeyEntry = state.apiKeys['anthropic'];
   const envKey = process.env['ANTHROPIC_API_KEY'];
-  const token = providerToken ?? claudeCodeToken ?? apiKeyEntry?.key ?? envKey;
+  // Priority: mmbridge's own token > env var > Claude Code keychain (shared, may be rate-limited)
+  const token = providerToken ?? apiKeyEntry?.key ?? envKey ?? claudeCodeToken;
 
   if (!token) {
     // Try inline key entry before giving up

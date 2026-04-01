@@ -207,8 +207,16 @@ async function doClaudeSetupToken(store: AuthStore): Promise<void> {
   process.stdout.write(`${dim('A browser window will open. Authorize access, then the token will be saved.')}\n\n`);
 
   try {
+    // Capture stdout to extract the token, pipe stdin/stderr for interactivity
     const child = spawn('claude', ['setup-token'], {
-      stdio: 'inherit',  // Pass through stdin/stdout for interactive flow
+      stdio: ['inherit', 'pipe', 'inherit'],
+    });
+
+    let stdout = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      const text = chunk.toString();
+      stdout += text;
+      process.stdout.write(text); // Still show output to user
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -219,31 +227,17 @@ async function doClaudeSetupToken(store: AuthStore): Promise<void> {
       child.on('error', reject);
     });
 
-    // After setup-token, read the token from Claude Code's keychain
-    try {
-      const raw = execSync(
-        'security find-generic-password -s "Claude Code-credentials" -w',
-        { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
-      ).trim();
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      const oauth = parsed['claudeAiOauth'] as Record<string, unknown> | undefined;
-      const token = oauth?.['accessToken'];
-      if (typeof token === 'string') {
-        await store.setToken('anthropic', { accessToken: token });
-        process.stdout.write(`\n${green('✓')} Anthropic OAuth token saved to mmbridge.\n`);
-        return;
-      }
-    } catch { /* fall through */ }
-
-    // Fallback: check CLAUDE_CODE_OAUTH_TOKEN env
-    const envToken = process.env['CLAUDE_CODE_OAUTH_TOKEN'];
-    if (envToken) {
-      await store.setToken('anthropic', { accessToken: envToken });
-      process.stdout.write(`\n${green('✓')} OAuth token saved from CLAUDE_CODE_OAUTH_TOKEN.\n`);
+    // Extract token from stdout: "sk-ant-oat01-..." on its own line
+    const tokenMatch = stdout.match(/(sk-ant-oat01-[A-Za-z0-9_-]+)/);
+    if (tokenMatch?.[1]) {
+      await store.setToken('anthropic', { accessToken: tokenMatch[1] });
+      process.stdout.write(`\n${green('✓')} OAuth token saved to mmbridge (separate from Claude Code).\n`);
       return;
     }
 
-    process.stdout.write(`${yellow('!')} Could not auto-detect token. Paste it manually:\n`);
+    // Fallback: ask user to paste
+    process.stdout.write(`\n${yellow('!')} Could not auto-detect token from output.\n`);
+    process.stdout.write('Paste the OAuth token shown above:\n');
     const token = await askSecret('OAuth token: ');
     if (token) {
       await store.setToken('anthropic', { accessToken: token });
