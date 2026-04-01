@@ -33,13 +33,37 @@ function getChangedFiles(projectDir: string): string[] {
   }
 }
 
+async function getClaudeCodeToken(): Promise<string | null> {
+  if (process.platform !== 'darwin') return null;
+  try {
+    const { execSync } = await import('node:child_process');
+    const raw = execSync(
+      'security find-generic-password -s "Claude Code-credentials" -w',
+      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
+    ).trim();
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    // Claude Code stores {anthropicApiKey: "sk-ant-..."} or OAuth tokens
+    if (typeof parsed['anthropicApiKey'] === 'string') return parsed['anthropicApiKey'];
+    if (typeof parsed['oauthAccessToken'] === 'string') return parsed['oauthAccessToken'];
+    // Try to find any string that looks like a token
+    for (const v of Object.values(parsed)) {
+      if (typeof v === 'string' && (v.startsWith('sk-ant-') || v.startsWith('eyJ'))) return v;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function runConversation(options: ConversationOptions): Promise<void> {
-  // 1. Get API key from auth store
+  // 1. Get API key: mmbridge auth → Claude Code keychain → env var
   const authStore = new AuthStore();
   const state = await authStore.load();
   const providerToken = state.providers['anthropic']?.accessToken;
   const apiKeyEntry = state.apiKeys['anthropic'];
-  const token = providerToken ?? apiKeyEntry?.key ?? process.env['ANTHROPIC_API_KEY'];
+  const claudeCodeToken = await getClaudeCodeToken();
+  const token = providerToken ?? apiKeyEntry?.key ?? claudeCodeToken ?? process.env['ANTHROPIC_API_KEY'];
 
   if (!token) {
     // Try inline key entry before giving up
