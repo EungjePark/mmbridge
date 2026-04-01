@@ -122,6 +122,8 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/skills: {}
+
   packages/tui:
     dependencies:
       '@mmbridge/adapters':
