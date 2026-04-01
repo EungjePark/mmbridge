@@ -308,6 +308,15 @@ export async function main(): Promise<void> {
       await whoami();
     });
 
+  // ── setup ──
+  program
+    .command('setup')
+    .description('Interactive setup wizard — configure providers, auth, and defaults')
+    .action(async () => {
+      const { runSetup } = await import('@mmbridge/auth');
+      await runSetup();
+    });
+
   // ── tui ──
   program
     .command('tui')

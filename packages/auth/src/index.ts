@@ -9,3 +9,4 @@ export {
   removeProviderToken,
 } from './keychain.js';
 export { login, logout, status, whoami } from './commands.js';
+export { runSetup } from './setup.js';
