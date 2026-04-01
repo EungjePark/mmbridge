@@ -8,19 +8,21 @@ import {
 } from './oauth-helpers.js';
 import type { AuthProvider, ProviderTokens } from './types.js';
 
+// Real OAuth endpoints (from Claude Code source)
 const PROVIDER_AUTH_URLS: Record<string, string> = {
-  anthropic: 'https://console.anthropic.com/oauth/authorize',
+  anthropic: 'https://platform.claude.com/oauth/authorize',
   openai: 'https://auth.openai.com/authorize',
 };
 
 const PROVIDER_TOKEN_URLS: Record<string, string> = {
-  anthropic: 'https://console.anthropic.com/oauth/token',
+  anthropic: 'https://platform.claude.com/v1/oauth/token',
   openai: 'https://auth.openai.com/oauth/token',
 };
 
+// Claude Code's registered OAuth client ID
 const DEFAULT_CLIENT_IDS: Record<string, string> = {
-  anthropic: 'mmbridge-anthropic-placeholder',
-  openai: 'mmbridge-openai-placeholder',
+  anthropic: '9d1c250a-e61b-44d9-88ed-5944d1962f5e',
+  openai: 'app_EMoamEEZ73f0CkXaXp7hrann',
 };
 
 function getClientId(provider: string): string {
@@ -94,7 +96,9 @@ export async function startOAuthFlow(
     response_type: 'code',
     client_id: getClientId(provider),
     redirect_uri: redirectUri,
-    scope: 'openid profile email',
+    scope: provider === 'anthropic'
+      ? 'user:inference user:profile org:create_api_key'
+      : 'openid profile email offline_access',
     state,
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',

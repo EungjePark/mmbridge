@@ -125,9 +125,9 @@ export async function runSetup(): Promise<void> {
     } else {
       // Try OAuth, fallback to API key
       const method = await selectMenu('Authentication method:', [
-        { key: 'oauth', label: 'OAuth (browser)', description: 'Opens browser for login' },
-        { key: 'apikey', label: 'API Key', description: 'Paste your API key' },
-        { key: 'claude-code', label: 'Reuse Claude Code token', description: 'Auto-detect from keychain' },
+        { key: 'claude-code', label: 'Reuse Claude Code token', description: 'Auto-detect from keychain — fastest' },
+        { key: 'oauth', label: 'OAuth (browser)', description: 'Opens browser for Anthropic login' },
+        { key: 'apikey', label: 'API Key', description: 'Paste your API key manually' },
       ]);
 
       if (method === 'oauth') {
