@@ -111,13 +111,40 @@ export async function startOAuthFlow(
   try {
     const { code } = await waitForCallback(port, state);
     const tokens = await exchangeCodeForTokens(provider, code, codeVerifier, redirectUri, state);
-    await new AuthStore().setToken(provider, tokens);
+    const store = new AuthStore();
+    await store.setToken(provider, tokens);
+
+    // For Anthropic: exchange OAuth token for an API key (Messages API requires x-api-key)
+    if (provider === 'anthropic') {
+      const apiKey = await createApiKeyFromOAuth(tokens.accessToken);
+      if (apiKey) {
+        await store.setApiKey('anthropic', apiKey);
+      }
+    }
+
     return { success: true, message: `Logged in to ${provider} successfully` };
   } catch (err) {
     return {
       success: false,
       message: err instanceof Error ? err.message : String(err),
     };
+  }
+}
+
+async function createApiKeyFromOAuth(accessToken: string): Promise<string | null> {
+  try {
+    const response = await fetch(
+      'https://api.anthropic.com/api/oauth/claude_cli/create_api_key',
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
+    if (!response.ok) return null;
+    const data = (await response.json()) as { raw_key?: string };
+    return data.raw_key ?? null;
+  } catch {
+    return null;
   }
 }
 

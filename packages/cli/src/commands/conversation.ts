@@ -66,10 +66,12 @@ export async function runConversation(options: ConversationOptions): Promise<voi
   // 1. Get API key: mmbridge auth → Claude Code keychain → env var
   const authStore = new AuthStore();
   const state = await authStore.load();
-  const providerToken = state.providers['anthropic']?.accessToken;
+  // Priority: API key (works with Messages API) > env var > OAuth token (may not work directly)
   const apiKeyEntry = state.apiKeys['anthropic'];
+  const envKey = process.env['ANTHROPIC_API_KEY'];
   const claudeCodeToken = await getClaudeCodeToken();
-  const token = providerToken ?? apiKeyEntry?.key ?? claudeCodeToken ?? process.env['ANTHROPIC_API_KEY'];
+  const providerToken = state.providers['anthropic']?.accessToken;
+  const token = apiKeyEntry?.key ?? envKey ?? claudeCodeToken ?? providerToken;
 
   if (!token) {
     // Try inline key entry before giving up
