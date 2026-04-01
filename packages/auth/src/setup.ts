@@ -227,8 +227,9 @@ async function doClaudeSetupToken(store: AuthStore): Promise<void> {
       child.on('error', reject);
     });
 
-    // Extract token from stdout: "sk-ant-oat01-..." on its own line
-    const tokenMatch = stdout.match(/(sk-ant-oat01-[A-Za-z0-9_-]+)/);
+    // Extract token from stdout — remove line breaks first (terminal wraps long tokens)
+    const cleaned = stdout.replace(/\r?\n/g, '');
+    const tokenMatch = cleaned.match(/(sk-ant-oat01-[A-Za-z0-9_-]{50,})/);
     if (tokenMatch?.[1]) {
       await store.setToken('anthropic', { accessToken: tokenMatch[1] });
       process.stdout.write(`\n${green('✓')} OAuth token saved to mmbridge (separate from Claude Code).\n`);
