@@ -4,6 +4,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import type { TextContent } from '@modelcontextprotocol/sdk/types.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const serverEntry = path.resolve(here, '..', 'dist', 'index.js');
@@ -56,7 +57,7 @@ test('mmbridge MCP server: tools/call mmbridge_doctor returns structured report'
     const texts: string[] = [];
     for (const item of content) {
       if (item && typeof item === 'object' && 'type' in item && item.type === 'text') {
-        const text = (item as { text?: unknown }).text;
+        const { text } = item as TextContent;
         if (typeof text === 'string') texts.push(text);
       }
     }
