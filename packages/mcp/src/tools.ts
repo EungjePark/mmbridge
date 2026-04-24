@@ -268,17 +268,15 @@ function resolveProjectDirArg(args: Record<string, unknown>): string {
 }
 
 function toGateSession(
-  session:
-    | {
-        id: string;
-        tool: string;
-        mode: string;
-        externalSessionId?: string | null;
-        followupSupported?: boolean;
-        findings?: Finding[];
-        findingDecisions?: Array<{ key: string; status: 'accepted' | 'dismissed' }>;
-      }
-    | null,
+  session: {
+    id: string;
+    tool: string;
+    mode: string;
+    externalSessionId?: string | null;
+    followupSupported?: boolean;
+    findings?: Finding[];
+    findingDecisions?: Array<{ key: string; status: 'accepted' | 'dismissed' }>;
+  } | null,
 ) {
   if (!session) return null;
   return {
@@ -670,7 +668,9 @@ async function handleGate(args: Record<string, unknown>) {
   let diffDigest: string | null = null;
   let changedFilesCount = 0;
 
-  const gitRoot = await runCommand('git', ['rev-parse', '--is-inside-work-tree'], { cwd: projectDir }).catch(() => null);
+  const gitRoot = await runCommand('git', ['rev-parse', '--is-inside-work-tree'], { cwd: projectDir }).catch(
+    () => null,
+  );
   if (gitRoot?.ok && gitRoot.stdout.trim() === 'true') {
     baseRef = baseRef ?? (await getDefaultBaseRef(projectDir));
     const [diffText, changedFiles] = await Promise.all([
