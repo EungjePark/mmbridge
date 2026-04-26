@@ -1,5 +1,13 @@
 # @mmbridge/context-broker
 
+## 0.7.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @mmbridge/core@0.7.3
+  - @mmbridge/session-store@0.7.3
+
 ## 0.7.2
 
 ### Patch Changes

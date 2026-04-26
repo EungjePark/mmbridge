@@ -1,6 +1,6 @@
 {
   "name": "@mmbridge/agent",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Conversational agent loop with Claude tool_use for mmbridge",
   "type": "module",
   "main": "dist/index.js",

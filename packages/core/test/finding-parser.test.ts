@@ -118,6 +118,16 @@ test('parseFindings: multiple mixed findings', () => {
   assert.equal(findings.filter((f) => f.severity === 'REFACTOR').length, 1);
 });
 
+test('parseFindings: no findings response stays empty instead of fallback INFO', () => {
+  const input = [
+    'No findings.',
+    '',
+    'Summary: The change correctly moves argument parsing before base-ref inference. I did not find correctness issues.',
+  ].join('\n');
+
+  assert.deepEqual(parseFindings(input), []);
+});
+
 test('parseFindings: fallback — plain text becomes INFO', () => {
   const input =
     'The code looks generally good but could use some cleanup in the authentication module. Consider refactoring the login flow.';

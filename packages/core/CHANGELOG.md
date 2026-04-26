@@ -1,5 +1,11 @@
 # @mmbridge/core
 
+## 0.7.3
+
+### Patch Changes
+
+- Treat explicit “No findings.” review responses as zero findings instead of fallback INFO/WARNING findings, so clean commit reviews do not create synthetic blockers.
+
 ## 0.7.2
 
 ### Patch Changes

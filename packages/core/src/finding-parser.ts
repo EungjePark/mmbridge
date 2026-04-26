@@ -89,10 +89,24 @@ type ParseSection = {
   severity: Severity | null;
 };
 
+function isNoFindingsResponse(rawText: string): boolean {
+  if (SEVERITY_TAG_RE.test(rawText) || HEADING_SEVERITY_RE.test(rawText)) return false;
+
+  const nonEmptyLines = rawText
+    .split('\n')
+    .map((line) => line.trim().replace(/\*\*/g, ''))
+    .filter(Boolean);
+
+  if (nonEmptyLines.length === 0) return false;
+  return /^no findings\.?$/i.test(nonEmptyLines[0]);
+}
+
 /**
  * Parse raw adapter text output into structured Finding[].
  */
 export function parseFindings(rawText: string): Finding[] {
+  if (isNoFindingsResponse(rawText)) return [];
+
   const lines = rawText.split('\n');
   const findings: Finding[] = [];
 

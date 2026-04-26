@@ -1,5 +1,18 @@
 # @mmbridge/cli
 
+## 0.7.3
+
+### Patch Changes
+
+- Treat explicit “No findings.” review responses as zero findings instead of fallback INFO/WARNING findings, so clean commit reviews do not create synthetic blockers.
+- Updated dependencies
+  - @mmbridge/core@0.7.3
+  - @mmbridge/adapters@0.7.3
+  - @mmbridge/agent@0.7.3
+  - @mmbridge/context-broker@0.7.3
+  - @mmbridge/session-store@0.7.3
+  - @mmbridge/tui@0.7.3
+
 ## 0.7.2
 
 ### Patch Changes
